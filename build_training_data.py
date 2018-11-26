@@ -30,53 +30,49 @@ def load_data(WORDLIST_FILE):
 		data = [i.strip('\n') for i in k]
 	return data
 
-def generate_images(wordlist, PATH):
-	fonts = [cv2.FONT_HERSHEY_SIMPLEX, cv2.FONT_HERSHEY_PLAIN, cv2.FONT_HERSHEY_DUPLEX, cv2.FONT_HERSHEY_COMPLEX, cv2.FONT_HERSHEY_TRIPLEX, cv2.FONT_HERSHEY_COMPLEX_SMALL, cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, cv2.FONT_HERSHEY_SCRIPT_COMPLEX, cv2.FONT_ITALIC]
-	fontscale = 2
-	font_color = 0
-	linetype = 2
-
-
-	for i in range(len(fonts)):
-		font = fonts[i]
-		img = np.ones((80,500), np.uint8) * 255
-		a = cv2.putText(img,'Hello World!',
-		(10,60),
-		font,
-		fontscale,
-		font_color,
-		linetype)
-
-		cv2.imwrite(os.path.join(PATH, str(i) + '.jpg'), a)
 def gen_pillow(wordlist, path):
 	fp = r'C:\Users\Brooks\github\Splitr\fonts'
 	fonts = os.listdir(fp)
 	L = len(fonts)
+	# print('sorting')
+	wordlist.sort(key=len, reverse=True)
+	# wordlist = wordlist[:]
 	track_dict = {}
+	# [print(i, len(i)) for i in wordlist[:100]]
 
-	f = 0
+	total_iter_track = 0
 	try:
-		for i in range(len(wordlist)):
-			word = wordlist[i]
+		for k in range(len(fonts)):
+			current_font = fonts[k]
 
-			img = Image.new('L', (500,80), color=255)
-			d = ImageDraw.Draw(img)
-			fnt = ImageFont.truetype(os.path.join(fp, fonts[f]), 70)
-			d.text((10,-10), word, fill=0, font=fnt)
-			img.save(os.path.join(path, str(i)+ '.jpg'))
+			for i in range(len(wordlist)):
+				word = wordlist[i]
 
-			track_dict[i] = word
-			f += 1
-			if f >= L:
-				f =0
-	except ValueError as e:
-		print(e)
+				if len(word) > 14:
+					fontsize = 35*3
+				else:
+					fontsize = 50 *3
+
+				img = Image.new('L', (500*3,80*3), color=255)
+				d = ImageDraw.Draw(img)
+				fnt = ImageFont.truetype(os.path.join(fp, current_font), fontsize)
+				d.text((10,-10), word, fill=0, font=fnt)
+				img = img.resize((500,80), Image.BILINEAR)
+				img.save(os.path.join(path, str(total_iter_track) + '.jpg'))
+
+				track_dict[total_iter_track] = [current_font, word]
+				total_iter_track += 1
+
+				if total_iter_track % 100000 == 0:
+					print('done percent: %s' % (100*(1/len(fonts))*(1/len(wordlist))*total_iter_track))
+
+	finally:
 		with open('training_data.json', 'w') as f:
 			json.dump(track_dict, f)
 
 if __name__ == '__main__':
 	WORDLIST_FILE = 'trainwords.txt'
-	PATH = r'D:\OCR'
+	PATH = r'D:\OCR_data'
 	words = load_data(WORDLIST_FILE)
 	# generate_images(words, PATH)
 	gen_pillow(words, PATH)
