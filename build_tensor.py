@@ -16,13 +16,15 @@ def build_tensor_stack(list_of_numpy_array):
 		raise TypeError('build_tensor_stack expects the argument to be a list of numpy arrays you input a variable that was not a list')
 
 	tensor_list = []
-
+	# print('input:')
+	# print(list_of_numpy_array)
 	for i in range(len(list_of_numpy_array)):
 		image = list_of_numpy_array[i]
 		# height, width, channels = image.shape
 		# height, width, channels = float(height), float(width), float(channels)
 
 		# NOTE: if you error at this portion of the code use the commented code directly above
+		# print(type(i), type(image))
 		height, width = image.shape
 		height, width = float(height), float(width)
 
@@ -82,10 +84,13 @@ def build_tensor_stack(list_of_numpy_array):
 		# finally we add the padding to the array
 		# left right top down
 		pad_function = torch.nn.ConstantPad2d((padding_width, padding_height),255)
-		resulting_image = pad_function(torch.from_numpy(image))
+		resulting_image = pad_function(torch.from_numpy(image.astype(np.float32)))
 
 		tensor_list.append(resulting_image)
 
 	final_stack = torch.stack(tensor_list)
+
+	if len(final_stack.shape) == 3:
+		final_stack = final_stack[:, None, :, :]
 
 	return final_stack
