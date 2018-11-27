@@ -5,7 +5,7 @@ import cv2 as cv
 
 # https://arxiv.org/pdf/1306.2795v1.pdf
 class model(torch.nn.Module):
-	def __init__(self, channel_count):
+	def __init__(self, channel_count=1):
 		super(model, self).__init__()
 
 		# add batch norm later
@@ -43,29 +43,26 @@ class model(torch.nn.Module):
 
 		# RECURRENT
 		self.lstm1 = torch.nn.Sequential(
-		torch.nn.LSTM(input_size=512, hidden_size=512, num_layers=2,batch_first=False, bidirectional=False)
+		torch.nn.LSTM(input_size=56, hidden_size=56, num_layers=2,batch_first=False, bidirectional=False)
 		)
 
 		self.lstm2 = torch.nn.Sequential(
-		torch.nn.LSTM(input_size=512, hidden_size=512, num_layers=2)
+		torch.nn.LSTM(input_size=56, hidden_size=56, num_layers=2)
 		)
 
 	def forward(self, x):
-		q = lambda x: print(x.shape)
+		# q = lambda x: print(x.shape)
 		t = self.cnn1(x)
-		# q(t)
 		t = self.cnn2(t)
-		# q(t)
 		t = self.cnn3(t)
-		# q(t)
 		t = self.cnn4(t)
-		# q(t)
 		t = self.cnn5(t)
-		# print('ending shape')
-		# print(t.shape)
+
 
 		# new_tensor = t.view(t.shape[0], 512, -1)
-		new_tensor = t.view(t.shape[0], -1, 512)
+		new_tensor = t.view(t.shape[0], 512, 56)
+		# new_tensor = t.view(t.shape[0], 56, 512)
+		print(new_tensor.size())
 
 
 		t= self.lstm1(new_tensor)
@@ -76,43 +73,27 @@ class model(torch.nn.Module):
 		# print(type(new_t))
 		# print(new_t.shape)
 		t = self.lstm2(new_t)
-		
+		print(t[0].shape)
+
 		return t[0]
 
+def init_model():
+	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+	return model().to(device)
 
-batch_size =1
-channels = 1 # 3 for RGB, 1 for greyscale TBD
-width = 80	# im width
-height = 500 # im height
+def load_data():
+	pass
 
+if __name__ == '__main__':
+	m = init_model()
+	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-device = 'cpu'
-print(device)
-
-
-img =cv.imread('example.jpg')
-img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-
-
-from build_tensor import build_tensor_stack
-
-tensor = build_tensor_stack([img for i  in range(1)]).to(device)
-
-print(tensor.shape, len(tensor.shape), len(tensor))
-
-x = model(channels).to(device)
-
-x.forward(tensor)
+	img =cv.imread('example.jpg')
+	img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
 
-# a = torch.Tensor(batch_size,channels,width,height)
+	from build_tensor import build_tensor_stack
 
+	tensor = build_tensor_stack([img for i in range(1)]).to(device)
 
-# x.forward(torch.Tensor(batch_size,channels,width,height))#.to(device))
-# output size : torch.Size([3, 512, 2, 28])
-
-
-# if there is an error with the tensor it is probably in the wrong dimention
-# convert tensor from 3d to 4d (aka one batch)
-# tensor = tensor[None, :, :, :]
+	m.forward(tensor)
