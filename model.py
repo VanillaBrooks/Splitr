@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 import numpy as np
 import cv2 as cv
+import os
+import time
+from build_tensor import build_tensor_stack
 
 # https://arxiv.org/pdf/1306.2795v1.pdf
 class model(torch.nn.Module):
@@ -77,23 +80,97 @@ class model(torch.nn.Module):
 
 		return t[0]
 
-def init_model():
-	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-	return model().to(device)
 
-def load_data():
-	pass
+def train(epochs=1000):
+	device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+	print('device being used: %s' % device)
 
-if __name__ == '__main__':
-	m = init_model()
-	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+	OCR = model().to(device)
 
-	img =cv.imread('example.jpg')
-	img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+	criterion = torch.nn.CrossEntropyLoss().to(device)
+	optimizer = torch.optim.SGD(OCR.parameters(), lr=1e-2, momentum=.9)#.to(device)
 
+	with open('finaltraining_data_y.json') as labels:
+		import json
+		data = json.load(labels)
 
+	ct = 10000
+
+	labels, filenames = [], []
+	index = 1
+	n = len(data)
+
+	for key in data.keys():
+		val = data[key]	# the label
+		labels.append(key)
+		filenames.append(os.path.join(r'D:\OCR_data',key + '.jpg'))
+
+		if index % 10000 == 0:
+			print('percent done: %s' % (index * 100 / n))
+		index +=1
+
+		# this is debug code
+		# dont gen images we wont use
+		if index > ct:
+			print('::::::::::breaking now %s %s' % (index, ct))
+			break
+
+	training_images = []
+	s = time.time()
+	i = 1
+	ct = 10000
+	print('\n the length of filenames ' , len(filenames))
+	for path in filenames[:ct]:
+		print(path)
+		im = cv.imread(path)
+		im = cv.cvtColor(im, cv.COLOR_BGR2GRAY)
+		training_images.append(np.array(im))
+
+		if i % 10 ==0:
+			print('percent done images: %s' % (i*100 / ct))
+		i += 1
+	print('total time to import %s images: %s' % (ct,time.time() - s))
 	from build_tensor import build_tensor_stack
 
-	tensor = build_tensor_stack([img for i in range(1)]).to(device)
+	print('datatype: %s length %s' % (training_images[0].dtype, len(training_images)))
+	s2 = time.time()
 
-	m.forward(tensor)
+	training_data = build_tensor_stack(training_images)
+	print('time to convert to tensors: %s' % (time.time() - s2))
+	print('total time: %s' % (time.time() - s))
+
+	print('len of returned data')
+	print(training_data.shape)
+
+
+	# training_data = torch.Tensor(training_#d_results).to(device)
+
+
+
+
+
+
+
+if __name__ == '__main__':
+	train()
+
+	# x = np.zeros((80,500)).reshape(80,500)
+	#
+	# gray = lambda x: cv.cvtColor(x, cv.COLOR_BGR2GRAY)
+	#
+	# # this image is generated (it will error)
+	# im = np.array(gray(cv.imread(r'D:\OCR_data2\i.jpg')), dtype=np.uint8)
+	#
+	# # this image is not (it wont error)
+	# new_im = gray(cv.imread('receipt2.jpg'))
+	#
+	# print('the image that errors: ')
+	# print(im.shape)
+	# print(im.dtype)
+	#
+	# print('the image that does not error')
+	# print(new_im.shape)
+	# print(new_im.dtype)
+	#
+	#
+	# x = build_tensor_stack([x])
