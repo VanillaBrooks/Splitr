@@ -20,20 +20,25 @@ def build_tensor_stack(list_of_numpy_array):
 	# print(list_of_numpy_array)
 	for i in range(len(list_of_numpy_array)):
 		image = list_of_numpy_array[i]
-		# height, width, channels = image.shape
-		# height, width, channels = float(height), float(width), float(channels)
 
 		# NOTE: if you error at this portion of the code use the commented code directly above
 		# print(type(i), type(image))
-		height, width = image.shape
+		shape = image.shape
+		height, width = shape[0], shape[1]
+
+		# if there is a channel layer somethings fucked
+		try:
+			if shape[2] != 1:
+				raise ValueError('build_tensor expects 1 channel images (greyscale)')
+		except IndexError: pass
+
+
 		height, width = float(height), float(width)
+		print('height is : %s width is %s ' % (height, width))
 
 		# the current 'image' is not a numpy arr
 		if type(image) != np.ndarray:
 			raise TypeError('the input list contains an element that is not a numpy array')
-		# if they have not been made into black and white
-		# elif channels != 1:
-		# 	raise ValueError('build_tensor expects 1 channel images (greyscale)')
 
 
 		#################################################
@@ -43,25 +48,31 @@ def build_tensor_stack(list_of_numpy_array):
 		height_ratio, width_ratio = 0,0
 
 		# find the current conditions of the height
-		if height <= DESIRED_HEIGHT:
-
+		if height < DESIRED_HEIGHT:
+			# print('padding less')
 			padding_height = calculate_padding(DESIRED_HEIGHT, height)
 		else:
+			# print('make height ratio')
 			height_ratio = DESIRED_HEIGHT/ height
 
 		# find the current conditions of the width
-		if width <= DESIRED_WIDTH:
+		if width < DESIRED_WIDTH:
+			# print('padding less ')
 			padding_width = calculate_padding(DESIRED_WIDTH, width)
 		else:
+			# print('made width')
 			width_ratio = DESIRED_WIDTH / width
 
 		# this block finds out which ratio is bigger
 		# since they both need to be adjusted to by the same ratio
 		# to preserve the aspect ratio
-		if width_ratio < height_ratio:									# if theres a bug its prolly in here
+		if width_ratio > height_ratio:									# if theres a bug its prolly in here
 			height_ratio = width_ratio
-		if height_ratio < width_ratio:
+		if height_ratio >  width_ratio:
 			width_ratio = height_ratio
+
+
+		# print('the padding and width ratios are : %s %s' % (height_ratio, width_ratio))
 
 		# if the height or widh ratio is not 0 (as they were originall assigned)
 		# then we need to calculate a new image size
@@ -84,7 +95,10 @@ def build_tensor_stack(list_of_numpy_array):
 		# finally we add the padding to the array
 		# left right top down
 		pad_function = torch.nn.ConstantPad2d((padding_width, padding_height),255)
+		# print('after pad function, datatype is %s shape is %s '% (image.dtype, image.shape))
+
 		resulting_image = pad_function(torch.from_numpy(image.astype(np.float32)))
+		# resulting_image = pad_function(image)
 
 		tensor_list.append(resulting_image)
 
