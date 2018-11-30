@@ -19,7 +19,7 @@ class model(torch.nn.Module):
 
 		# CONVOLUTIONS
 		self.cnn1 = torch.nn.Sequential(
-		torch.nn.Conv2d(in_channels=channel_count,out_channels=64,kernel_size=2),
+		torch.nn.Conv2d(in_channels=channel_count,out_channels=64,kernel_size=3),
 		torch.nn.ReLU(),
 		torch.nn.MaxPool2d((2,2), stride=2)
 		) # out: torch.Size([3, 64, 39, 249])
@@ -33,28 +33,32 @@ class model(torch.nn.Module):
 		self.cnn3 = torch.nn.Sequential(
 		torch.nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3),
 		torch.nn.ReLU(),
-		torch.nn.MaxPool2d((2,2), stride = 2)
 		) # out: torch.Size([3, 256, 8, 60])
 
 		self.cnn4 = torch.nn.Sequential(
 		torch.nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3),
 		torch.nn.ReLU(),
-		torch.nn.MaxPool2d((2,2), stride = 2)
+		torch.nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3),
+		torch.nn.ReLU(),
+		torch.nn.MaxPool2d((1,2), stride = 2)
 		) # out: torch.Size([3, 512, 3, 29])
 
 		self.cnn5 = torch.nn.Sequential(
 		torch.nn.Conv2d(in_channels=512, out_channels=512, kernel_size=2),
+		torch.nn.ReLU(),
+		torch.nn.BatchNorm2d(512),
+		torch.nn.Conv2d(in_channels=512, out_channels=512, kernel_size=2)
 		) # out:torch.Size([x, 512, 2, 28])
 
 		# RECURRENT
-		self.lstm1 = torch.nn.Sequential(
-		torch.nn.LSTM(input_size=512, hidden_size=512, num_layers=2,batch_first=False, bidirectional=False)
-		)
+		self.lstm1 = torch.nn.LSTM(input_size=224, hidden_size=112, num_layers=4, bidirectional=True)
 
+		self.lstm2 = torch.nn.LSTM(input_size=224, hidden_size=112, num_layers=4, bidirectional=True)
 
-		self.lstm2 = torch.nn.LSTM(input_size=512, hidden_size=512, num_layers=2)
-		self.lin1 = torch.nn.Linear(in_features=512*56, out_features=16)
+		self.lin1 = torch.nn.Linear(in_features=512*224, out_features=16)
+
 		self.r = torch.nn.ReLU()
+
 		# self.lstm2 = torch.nn.Sequential(
 		# torch.nn.LSTM(input_size=512, hidden_size=512, num_layers=2),
 		# torch.nn.Linear(in_features=512*56, out_features=16)
@@ -69,39 +73,35 @@ class model(torch.nn.Module):
 		t = self.cnn5(t)
 
 
-		# new_tensor = t.view(t.shape[0], -1, 16) # more general case of the bottom one
-		# print('::::')
-		# print(new_tensor.shape)
-		# new_tensor = t.view(t.shape[0], 512, 56) #this was the previous one without spaces
-		new_tensor = t.view(t.shape[0], 56, 512) # lstm input would be 512
-		print(new_tensor.size())
+		t = t.view(t.shape[0], -1, 224) # lstm input would be 512
 
-
-		t , _= self.lstm1(new_tensor)
+		t , hidden = self.lstm1(t)
 		t = self.r(t)
 		# returns output, hidden
 		# output is fed into the next network
+		# t = t.view(t.shape[0], -1,256)
+
 
 		t, hidden = self.lstm2(t)
 		t = self.r(t)
+
 		t = t.view(t.shape[0], -1)
 		t = self.lin1(t)
 		t = self.r(t)
-		# print('\n\n\n:::: final shape ', t.shape)
 
 		return t
 
 
-def train(epochs=1000):
+def train(epochs=10000):
 	device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 	print('device being used: %s' % device)
 
 	OCR = model().to(device)
 
-	criterion = torch.nn.CrossEntropyLoss().to(device)
-	optimizer = torch.optim.SGD(OCR.parameters(), lr=1e-2, momentum=.9)#.to(device)
+	criterion = torch.nn.MultiLabelSoftMarginLoss().to(device)
+	optimizer = torch.optim.SGD(OCR.parameters(), lr=1e-1)#.to(device)
 
-	ct = 100
+	ct = 23
 	debug = True
 
 	data =pd.read_csv('final.csv')
@@ -139,12 +139,15 @@ def train(epochs=1000):
 
 	for i in range(epochs):
 		optimizer.zero_grad()
-		print(':::::::::::::training datax %s training data y %s' % (len(training_data_x), len(training_data_y)))
+		# print(':::::::::::::training datax %s training data y %s' % (len(training_data_x), len(training_data_y)))
 		predicted_vals = OCR.forward(training_data_x)
-		print(predicted_vals.shape)
-		loss = criterion(predicted_vals, training_data_y)
+
+		loss = criterion(predicted_vals.squeeze(), training_data_y.squeeze())
 		loss.backward()
-		print('epoch:%s loss %s'% (i, loss.item))
+
+		if i % 10 == 0:
+			print('epoch:%s loss %s'% (i, loss.item()))
+
 
 def one_hot_lables(list_of_labels):
 	with open('unique_characters.txt', 'r') as f:
@@ -165,7 +168,7 @@ def one_hot_lables(list_of_labels):
 			array_placement_index += 1
 
 		# convert vector to tensor and save for later
-		np_arrays_to_stack.append(torch.from_numpy(current_word_array).long())
+		np_arrays_to_stack.append(torch.from_numpy(current_word_array).float())
 
 	torch_stack = torch.stack(np_arrays_to_stack)
 	return torch_stack
