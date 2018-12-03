@@ -126,7 +126,7 @@ def delete_old_files(fpath):
 
 # config
 WORDLIST_FILE = r'data\trainwords.txt'
-ORC_DATA_PATH = r'C:\Users\Brooks\Desktop\OCR_data'	# where to dump the generated images
+OCR_DATA_PATH = r'C:\Users\Brooks\Desktop\OCR_data'	# where to dump the generated images
 UNIQUE_CHARS_PATH = r'data\unique_characters.txt'
 delete_old_data = False						# remove older files in folder. faster than windows delete
 gen_unique= False							# create a file of unique characters that are being trained
@@ -134,8 +134,8 @@ gen_unique= False							# create a file of unique characters that are being trai
 if __name__ == '__main__':
 	# ascii_only('trainwords_old.txt')
 	if delete_old_data:
-		delete_old_files(ORC_DATA_PATH)
+		delete_old_files(OCR_DATA_PATH)
 	words = load_data(WORDLIST_FILE)[:10000]
-	# gen_pillow(words, ORC_DATA_PATH)
+	# gen_pillow(words, OCR_DATA_PATH)
 	if gen_unique:
 		unique_characters(words,UNIQUE_CHARS_PATH)
