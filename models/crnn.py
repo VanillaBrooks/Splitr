@@ -10,6 +10,9 @@ import time
 import pandas as pd
 
 import model_utils
+
+# this is really a constructor for a bidirectional LSTM but i figured
+# BD_LSTM  was only 2 letters off of BDSM so why not
 class BDSM(torch.nn.Module):
 	def __init__(self, num_inputs, num_hidden_layers, num_output_layers):
 		super(BDSM, self).__init__()
@@ -140,7 +143,3 @@ def train(epochs=10000):
 
 if __name__ == '__main__':
 	train()
-
-	# df = pd.read_csv('final.csv')
-	# x = df['labels'].tolist()
-	# print(x)
