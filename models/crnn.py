@@ -1,14 +1,35 @@
+import sys
+# add the modules outside the model folder to the environment
+sys.path.insert(0, r'C:\Users\Brooks\github\splitr')
+
+# library functions
 import torch
-import torch.nn as nn
 import numpy as np
-import cv2 as cv
 import os
 import time
 import pandas as pd
-from build_tensor import build_tensor_stack
-from build_training_data import PATH as training_data_path
 
-# https://arxiv.org/pdf/1306.2795v1.pdf
+import model_utils
+class BDSM(torch.nn.Module):
+	def __init__(self, num_inputs, num_hidden_layers, num_output_layers):
+		super(BDSM, self).__init__()
+
+		self.rnn = torch.nn.LSTM(num_inputs, num_hidden_layers, bidirectional=True)
+		self.linear = torch.nn.Linear(num_hidden_layers*2, num_output_layers)
+
+	def forward(self, x):
+		rnn_output, _ = self.rnn(x)
+		k, base,height = rnn_output.size()
+
+		# print('bdsm: rnn shape out is ', rnn_output.shape)
+		x = rnn_output.view(k*base, height)
+		x = self.linear(x)
+		x = x.view(k, base, -1)
+		# print('bdsm: final shape is ', x.shape)
+
+		return x
+
+# https://arxiv.org/pdf/1507.05717.pdf
 class model(torch.nn.Module):
 	def __init__(self, channel_count=1):
 		super(model, self).__init__()
@@ -47,23 +68,17 @@ class model(torch.nn.Module):
 		torch.nn.Conv2d(in_channels=512, out_channels=512, kernel_size=2),
 		torch.nn.ReLU(),
 		torch.nn.BatchNorm2d(512),
-		torch.nn.Conv2d(in_channels=512, out_channels=512, kernel_size=2)
+		torch.nn.Conv2d(in_channels=512, out_channels=512, kernel_size=2),
+		torch.nn.MaxPool2d((3,3), stride= 2)
 		) # out:torch.Size([x, 512, 2, 28])
 
-		# RECURRENT
-		self.lstm1 = torch.nn.LSTM(input_size=224, hidden_size=112, num_layers=4, bidirectional=True)
-
-		self.lstm2 = torch.nn.LSTM(input_size=224, hidden_size=112, num_layers=4, bidirectional=True)
-
-		self.lin1 = torch.nn.Linear(in_features=512*224, out_features=16)
-
-		self.r = torch.nn.ReLU()
-
-		# self.lstm2 = torch.nn.Sequential(
-		# torch.nn.LSTM(input_size=512, hidden_size=512, num_layers=2),
-		# torch.nn.Linear(in_features=512*56, out_features=16)
-		# )
-
+		num_hidden = 200
+		num_output = 200
+		unique_char_count = 57
+		self.rnn = torch.nn.Sequential(
+		BDSM(num_inputs=512, num_hidden_layers=num_hidden,num_output_layers=num_output),
+		BDSM(num_inputs=num_output, num_hidden_layers=num_hidden, num_output_layers=unique_char_count )
+		)
 	def forward(self, x):
 		# q = lambda x: print(x.shape)
 		t = self.cnn1(x)
@@ -71,107 +86,56 @@ class model(torch.nn.Module):
 		t = self.cnn3(t)
 		t = self.cnn4(t)
 		t = self.cnn5(t)
+		# print(t.shape)
 
-
-		t = t.view(t.shape[0], -1, 224) # lstm input would be 512
-
-		t , hidden = self.lstm1(t)
-		t = self.r(t)
-		# returns output, hidden
-		# output is fed into the next network
-		# t = t.view(t.shape[0], -1,256)
-
-
-		t, hidden = self.lstm2(t)
-		t = self.r(t)
-
-		t = t.view(t.shape[0], -1)
-		t = self.lin1(t)
-		t = self.r(t)
+		# rearrange the tensor
+		# batch x 512 x 0 x 27 ==== > batch x 27 x 512
+		t = t.view(t.shape[0], 27, 512)
+		t = self.rnn(t) # batch x 27 x 57
 
 		return t
 
 
 def train(epochs=10000):
+	batch_size = 3
+	workers = 8
+	shuffle = True
+
 	device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 	print('device being used: %s' % device)
 
 	OCR = model().to(device)
 
-	criterion = torch.nn.MultiLabelSoftMarginLoss().to(device)
-	optimizer = torch.optim.SGD(OCR.parameters(), lr=1e-1)#.to(device)
+	criterion = torch.nn.CTCLoss().to(device)
+	optimizer = torch.optim.SGD(OCR.parameters(), lr=1e-1)
 
-	ct = 23
-	debug = True
-
-	data =pd.read_csv('final.csv')
-	labels = data['labels'].tolist()
-	filenames = data['names'].tolist()
-
-	print('!!! initial length of labels and filenames: %s %s' % (len(labels), len(filenames)))
-	# if we are debugging and ct is small we crop the data
-	if debug and ct < len(labels):
-		labels = labels[:ct]
-		filenames = filenames[:ct]
-
-
-	# make a vector representation of every word
-	print('length of the data going into one hot %s' % len(labels))
-	training_data_y = one_hot_lables(labels).to(device)
-
-	training_images = []
-	s = time.time()
-	i = 1
-
-	# add all the files to a list
-	for path in filenames:
-		im = cv.imread(os.path.join(training_data_path, path))
-		im = cv.cvtColor(im, cv.COLOR_BGR2GRAY)
-		training_images.append(im)
-
-		if i % 10 ==0:
-			print('importing images: %s' % (i*100 / ct))
-		i += 1
-
-	print('datda going into build tensor stack: %s ' % len(training_images))
-	training_data_x = build_tensor_stack(training_images).to(device)
-
+	training_set = model_utils.OCR_dataset_loader(r'data\final.csv', r'C:\Users\Brooks\Desktop\OCR_data')
+	training_data = torch.utils.data.DataLoader(training_set, batch_size=batch_size, num_workers=workers, shuffle=shuffle)
 
 	for i in range(epochs):
-		optimizer.zero_grad()
-		# print(':::::::::::::training datax %s training data y %s' % (len(training_data_x), len(training_data_y)))
-		predicted_vals = OCR.forward(training_data_x)
+		print(i)
 
-		loss = criterion(predicted_vals.squeeze(), training_data_y.squeeze())
-		loss.backward()
+		for training_img_batch, training_label_batch in training_data:
 
-		if i % 10 == 0:
-			print('epoch:%s loss %s'% (i, loss.item()))
+			training_img_batch = training_img_batch[:,None,:,:].to(device)
+			training_label_batch = training_label_batch # this stays here for when we need to convert to tensors later
+
+			predicted_size = torch.IntTensor([batch_size] * batch_size)
+			length = predicted_size
+			text = torch.IntTensor(batch_size*5)
+
+			print('prediced size')
+			print(predicted_size.shape)
+			print(predicted_size)
 
 
-def one_hot_lables(list_of_labels):
-	with open('unique_characters.txt', 'r') as f:
-		chars = f.read()
+			predicted_labels = OCR.forward(training_img_batch)
+			print(predicted_labels.size(), predicted_labels.size(0))
 
-	np_arrays_to_stack = []
+			loss = criterion(predicted_labels, training_label_batch, predicted_size, length)
 
-	for label in list_of_labels:
-		current_word_array = np.zeros((1,16), dtype=np.float32)
-		array_placement_index = 0
-
-		label = str(label)
-
-		for letter in label:
-			current_index = chars.index(letter) +1 # let zero be blank
-			current_word_array[0,array_placement_index] = current_index
-
-			array_placement_index += 1
-
-		# convert vector to tensor and save for later
-		np_arrays_to_stack.append(torch.from_numpy(current_word_array).float())
-
-	torch_stack = torch.stack(np_arrays_to_stack)
-	return torch_stack
+			break
+		break
 
 
 if __name__ == '__main__':

@@ -11,6 +11,10 @@ def build_tensor_stack(list_of_numpy_array):
 	DESIRED_HEIGHT = 80
 	DESIRED_WIDTH = 500
 
+	print('\n\n\n build_tensor_stack: type of input %s \n\n\n' % type(list_of_numpy_array))
+	if type(list_of_numpy_array) == np.ndarray:
+		list_of_numpy_array = [list_of_numpy_array]
+
 	# the input was not a list, prevents the error in the for loop
 	if type(list_of_numpy_array) != list:
 		raise TypeError('build_tensor_stack expects the argument to be a list of numpy arrays you input a variable that was not a list')
