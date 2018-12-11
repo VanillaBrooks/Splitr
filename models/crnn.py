@@ -105,27 +105,33 @@ class model(torch.nn.Module):
 
 
 def train(epochs=10000):
-	batch_size = 2
+	batch_size = 100
 	workers = 8
 	shuffle = True
 
-	a1 = time.time()
+	model_save_path = r'C:\Users\Brooks\github\Splitr\models\%s_%s'
+	start_time = time.time()
+
 	device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-	# device = torch.device('cpu')
 	print('device being used: %s' % device)
 
-	a2 = time.time()
 	OCR = model().to(device)
 
-	a3 = time.time()
 	criterion = torch.nn.CTCLoss().to(device)
 	optimizer = torch.optim.SGD(OCR.parameters(), lr=1e-1)
 
-	a4 = time.time()
-	training_set = model_utils.OCR_dataset_loader(r'C:\Users\Brooks\github\Splitr\data\final.csv', r'C:\Users\Brooks\Desktop\OCR_data', encode='vector',crop_dataset=False)
-	training_data = torch.utils.data.DataLoader(training_set, batch_size=batch_size, num_workers=workers, shuffle=shuffle)
+	training_set = model_utils.OCR_dataset_loader(
+		csv_file_path = r'C:\Users\Brooks\github\Splitr\data\final.csv',
+		path_to_data =r'C:\Users\Brooks\Desktop\OCR_data',
+		crop_dataset=False,
+		transform = False)
 
-	a5 = time.time()
+	training_data = torch.utils.data.DataLoader(
+		training_set,
+		batch_size=batch_size,
+		num_workers=workers,
+		shuffle=shuffle)
+
 	for i in range(epochs):
 		epoch_loss = 0
 		count = 0
@@ -133,38 +139,29 @@ def train(epochs=10000):
 		for training_img_batch, training_label_batch in training_data:
 			count += 1
 			training_img_batch = training_img_batch[:,None,:,:].to(device)
-			training_label_batch = training_label_batch.to(device)
-			training_label_batch = training_label_batch.squeeze()
+			target_length_list = [len(word) for word in training_label_batch]
+
+			training_label_batch = model_utils.encode_single_vector(
+				training_label_batch,
+				training_set.max_str_len,
+				training_set.unique_chars
+			).squeeze().to(device)
 
 			optimizer.zero_grad()
 
 			predicted_labels = OCR.forward(training_img_batch)
 
 			dim1, dim2, dim3 = predicted_labels.shape
-			predicted_size = torch.full((dim2,),dim1, dtype=torch.long)
-			length = torch.randint(1,100,(16,), dtype=torch.long)
+			predicted_size = torch.full((dim2,),dim1, dtype=torch.long)	# this is the size of the word that came from the predictor
+			target_length = torch.tensor(target_length_list)
 
-			# debug code for sizes
-			print('pred label', predicted_labels.size())
-			print('training_label_batch', training_label_batch.size())
-			print('predicted_size', predicted_size.size())
-			print('length', length.size())
-
-			########################################################
-			#### soemthing is not correct with the loss function####
-			########################################################
-			
-			loss = criterion(predicted_labels, training_label_batch, predicted_size, length)
-
+			loss = criterion(predicted_labels, training_label_batch, predicted_size, target_length)
 
 			loss.backward()
 			optimizer.step()
 
-			epoch_loss += loss.item() / dim2
-			print(count, loss.item()/dim2)
-
-			break
-		break
+			epoch_loss += loss.item()
+			# print(count, loss.item()/dim2)
 
 		outstr = 'epoch: %s loss: %s loss decrease:%s'
 		if i > 0:
@@ -172,12 +169,11 @@ def train(epochs=10000):
 		else:
 			outstr =  outstr % (i+1, epoch_loss, epoch_loss)
 
+		if i % 10 == 0:
+			torch.save(OCR.state_dict(), model_save_path % (start_time, i))
+
 		print(outstr)
 		prev_epoch_loss = epoch_loss
-
-	a6 = time.time()
-
-	print('device: %s\nmodel: %s\ncrit + optim: %s\ndataset: %s\npass: %s \n' %(a2-a1, a3-a2, a4-a3, a5-a4, a6-a5))
 
 if __name__ == '__main__':
 	train()
