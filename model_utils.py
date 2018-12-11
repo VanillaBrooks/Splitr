@@ -8,7 +8,7 @@ import numpy as np
 import torch
 
 class OCR_dataset_loader(torch.utils.data.Dataset):
-	def __init__(self, csv_file_path, path_to_data, encode=False, crop_dataset=False, transform=None):
+	def __init__(self, csv_file_path, path_to_data, crop_dataset=False, transform=False):
 		"""
 		Arguments:
 			csv_file_path (string): csv file with
@@ -18,10 +18,9 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 			crop_dataset (int): crop the training data to a smaller size
 			transform (callable, optional): Transformations to be applied to teh samples
 		"""
-		self.training_df = pd.read_csv(csv_file_path)
+		self.training_df = pd.read_csv(csv_file_path).dropna()
 		self.root_dir = path_to_data
 		self.transform = transform
-		self.encode = encode
 
 		# if we are only working with a portion of the data loader
 		if crop_dataset:
@@ -55,10 +54,6 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		# transform the image if needed
 		if self.transform:
 			image = self.transform(image)
-		if self.encode == 'onehot':
-			image_text = encode_one_hot([image_text], self.max_str_len, self.unique_chars)
-		elif self.encode == 'vector':
-			image_text = encode_single_vector([image_text], self.max_str_len, self.unique_chars)
 
 		return image , image_text
 
