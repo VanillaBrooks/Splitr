@@ -21,13 +21,16 @@ class BDSM(torch.nn.Module):
 		self.linear = torch.nn.Linear(num_hidden_layers*2, num_output_layers)
 
 	def forward(self, x):
+		# print('bdsm input size:', x.shape)
 		rnn_output, _ = self.rnn(x)
-		k, base,height = rnn_output.size()
+		# print('rnn output size', rnn_output.shape)
+		batch_num, base,height = rnn_output.size()
 
 		# print('bdsm: rnn shape out is ', rnn_output.shape)
-		x = rnn_output.view(k*base, height)
+		x = rnn_output.view(batch_num*base, height)
 		x = self.linear(x)
-		x = x.view(k, base, -1)
+		x = x.view(batch_num, base, -1)
+
 		# print('bdsm: final shape is ', x.shape)
 
 		return x
@@ -39,7 +42,7 @@ class model(torch.nn.Module):
 
 		# add batch norm later
 		# add dropout to cnn layers
-		self.a = torch.nn.Conv2d(1,64,2)
+		self.softmax = torch.nn.LogSoftmax(dim=1)
 
 		# CONVOLUTIONS
 		self.cnn1 = torch.nn.Sequential(
@@ -89,57 +92,92 @@ class model(torch.nn.Module):
 		t = self.cnn3(t)
 		t = self.cnn4(t)
 		t = self.cnn5(t)
-		# print(t.shape)
 
 		# rearrange the tensor
 		# batch x 512 x 0 x 27 ==== > batch x 27 x 512
-		t = t.view(t.shape[0], 27, 512)
+		# t = t.view(t.shape[0], 27, 512)
+		t = t.view(27, t.shape[0], 512)
+
 		t = self.rnn(t) # batch x 27 x 57
 
-		return t
+		predicted = self.softmax(t)
+		return predicted
 
 
 def train(epochs=10000):
-	batch_size = 3
+	batch_size = 2
 	workers = 8
 	shuffle = True
 
+	a1 = time.time()
 	device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+	# device = torch.device('cpu')
 	print('device being used: %s' % device)
 
+	a2 = time.time()
 	OCR = model().to(device)
 
+	a3 = time.time()
 	criterion = torch.nn.CTCLoss().to(device)
 	optimizer = torch.optim.SGD(OCR.parameters(), lr=1e-1)
 
-	training_set = model_utils.OCR_dataset_loader(r'data\final.csv', r'C:\Users\Brooks\Desktop\OCR_data')
+	a4 = time.time()
+	training_set = model_utils.OCR_dataset_loader(r'C:\Users\Brooks\github\Splitr\data\final.csv', r'C:\Users\Brooks\Desktop\OCR_data', encode='vector',crop_dataset=False)
 	training_data = torch.utils.data.DataLoader(training_set, batch_size=batch_size, num_workers=workers, shuffle=shuffle)
 
+	a5 = time.time()
 	for i in range(epochs):
-		print(i)
+		epoch_loss = 0
+		count = 0
 
 		for training_img_batch, training_label_batch in training_data:
-
+			count += 1
 			training_img_batch = training_img_batch[:,None,:,:].to(device)
-			training_label_batch = training_label_batch # this stays here for when we need to convert to tensors later
+			training_label_batch = training_label_batch.to(device)
+			training_label_batch = training_label_batch.squeeze()
 
-			predicted_size = torch.IntTensor([batch_size] * batch_size)
-			length = predicted_size
-			text = torch.IntTensor(batch_size*5)
-
-			print('prediced size')
-			print(predicted_size.shape)
-			print(predicted_size)
-
+			optimizer.zero_grad()
 
 			predicted_labels = OCR.forward(training_img_batch)
-			print(predicted_labels.size(), predicted_labels.size(0))
 
+			dim1, dim2, dim3 = predicted_labels.shape
+			predicted_size = torch.full((dim2,),dim1, dtype=torch.long)
+			length = torch.randint(1,100,(16,), dtype=torch.long)
+
+			# debug code for sizes
+			print('pred label', predicted_labels.size())
+			print('training_label_batch', training_label_batch.size())
+			print('predicted_size', predicted_size.size())
+			print('length', length.size())
+
+			########################################################
+			#### soemthing is not correct with the loss function####
+			########################################################
+			
 			loss = criterion(predicted_labels, training_label_batch, predicted_size, length)
+
+
+			loss.backward()
+			optimizer.step()
+
+			epoch_loss += loss.item() / dim2
+			print(count, loss.item()/dim2)
 
 			break
 		break
 
+		outstr = 'epoch: %s loss: %s loss decrease:%s'
+		if i > 0:
+			outstr = outstr % (i+1, epoch_loss, prev_epoch_loss- epoch_loss)
+		else:
+			outstr =  outstr % (i+1, epoch_loss, epoch_loss)
+
+		print(outstr)
+		prev_epoch_loss = epoch_loss
+
+	a6 = time.time()
+
+	print('device: %s\nmodel: %s\ncrit + optim: %s\ndataset: %s\npass: %s \n' %(a2-a1, a3-a2, a4-a3, a5-a4, a6-a5))
 
 if __name__ == '__main__':
 	train()

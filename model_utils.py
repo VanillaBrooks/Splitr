@@ -13,12 +13,15 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		Arguments:
 			csv_file_path (string): csv file with
 			path_to_data (raw string): Directory holding all the data being used for training
+			encode (onehot / vector): Decides what type of data to return from __getitem__
+				if left empty a tuple of strings will be returned
 			crop_dataset (int): crop the training data to a smaller size
 			transform (callable, optional): Transformations to be applied to teh samples
 		"""
 		self.training_df = pd.read_csv(csv_file_path)
 		self.root_dir = path_to_data
 		self.transform = transform
+		self.encode = encode
 
 		# if we are only working with a portion of the data loader
 		if crop_dataset:
@@ -52,10 +55,10 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		# transform the image if needed
 		if self.transform:
 			image = self.transform(image)
-		if encode == 'onehot':
-			image_text = encode_one_hot([image_text], len(self.unique_chars), self.unique_chars)
-		elif encode = 'vector':
-			image_text = encode_single_vector([image_text], len(self.unique_chars), self.unique_chars)
+		if self.encode == 'onehot':
+			image_text = encode_one_hot([image_text], self.max_str_len, self.unique_chars)
+		elif self.encode == 'vector':
+			image_text = encode_single_vector([image_text], self.max_str_len, self.unique_chars)
 
 		return image , image_text
 
@@ -81,6 +84,7 @@ def find_unique_characters(list_to_parse):
 
 def encode_single_vector(list_of_labels, max_word_len=False, unique_chars=False):
 	# calculate maxlen if not already done
+	# print('max word len: ', max_word_len)
 	if not max_word_len:
 		max_word_len = len(max(list_of_labels, key=len))
 	# calculate the uniqe characters if not already done
@@ -92,10 +96,14 @@ def encode_single_vector(list_of_labels, max_word_len=False, unique_chars=False)
 	for label in list_of_labels:
 		if isinstance(label, float):
 			# catch problems with NaN being in the dataset
-			if str(label).lower() == 'nan':
-				continue
+			# if str(label).lower() == 'nan':
+				# continue
+			print('problem label: ', label)
+			label = str(label)
 
 		current_word_array = np.zeros((1,max_word_len), dtype=np.float32)
+		# print('current word array:')
+		# print(current_word_array.shape)
 		array_placement_index = 0
 
 		for letter in label:
