@@ -1,10 +1,7 @@
-import cv2
-import torch
-import pprint
+from cv2 import imwrite
 import numpy as np
 import os
 from PIL import Image, ImageDraw, ImageFont
-import json
 import string
 import pandas as pd
 
@@ -15,7 +12,7 @@ def ascii_only(filename):
 		inlist = [i.strip('\n') for i in d]
 	new = []
 
-	good_characters = set(string.ascii_letters + " .,;'")
+	good_characters = set(string.ascii_letters + " 1234567890.,;'")
 
 	is_ascii = lambda x: x in good_characters
 
@@ -79,7 +76,7 @@ def gen_pillow(wordlist, path):
 
 				img_save_path = os.path.join(path, str(total_iter_track) + '.jpg')
 				# img.save(os.path.join(path, str(total_iter_track) + '.jpg'))
-				cv2.imwrite(img_save_path, np.array(img))
+				imwrite(img_save_path, np.array(img))
 
 				names.append(str(total_iter_track) +'.jpg')
 				labels.append(word)

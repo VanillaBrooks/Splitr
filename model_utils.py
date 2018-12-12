@@ -58,14 +58,13 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		return image , image_text
 
 def find_unique_characters(list_to_parse):
-	unique_chars = set()
+	unique_chars = list()
 	for word in list_to_parse:
 		if isinstance(word,float):
 			word = str(word)
 		for letter in word:
 			if letter not in unique_chars:
-				unique_chars.add(letter)
-	unique_chars = list(unique_chars)
+				unique_chars.append(letter)
 
 	# make sure that space is at the start of the character sequence
 	if ' ' not in unique_chars:
@@ -113,6 +112,18 @@ def encode_single_vector(list_of_labels, max_word_len=False, unique_chars=False)
 	torch_stack = torch.stack(tensors_to_stack)
 	return torch_stack
 
+def decode_single_vector(input_tensor, unique_chars, argmax_dim=1):
+	word_vector = torch.argmax(input_tensor, argmax_dim)
+	print('the word vector is :')
+	print(word_vector.shape)
+	print(input_tensor.shape)
+	vec = word_vector.squeeze()
+	print (vec)
+
+	print([unique_chars[int(i)] for i in vec])
+	
+
+
 def encode_one_hot(list_of_labels, max_word_len=False, unique_chars=False):
 	# calculate max_word_len if not already done
 	if not max_word_len:
@@ -143,7 +154,8 @@ def encode_one_hot(list_of_labels, max_word_len=False, unique_chars=False):
 	return torch_stack
 
 if __name__ == '__main__':
-	x = OCR_dataset_loader(r'data\final.csv', r'C:\Users\Brooks\Desktop\OCR_data', None)
-	print(x.unique_chars)
-	a = encode_one_hot(x.training_df['labels'], x.max_str_len, x.unique_chars)
-	print(a[1,:,:])
+	# x = OCR_dataset_loader(r'data\final.csv', r'C:\Users\Brooks\Desktop\OCR_data', None)
+	# print(x.unique_chars)
+	# a = encode_one_hot(x.training_df['labels'], x.max_str_len, x.unique_chars)
+	# print(a[1,:,:])
+	pass
