@@ -114,14 +114,15 @@ def encode_single_vector(list_of_labels, max_word_len=False, unique_chars=False)
 
 def decode_single_vector(input_tensor, unique_chars, argmax_dim=1):
 	word_vector = torch.argmax(input_tensor, argmax_dim)
-	print('the word vector is :')
-	print(word_vector.shape)
-	print(input_tensor.shape)
+	print(unique_chars)
+	# print('the word vector is :')
+	# print(word_vector.shape)
+	# print(input_tensor.shape)
 	vec = word_vector.squeeze()
 	print (vec)
 
 	print([unique_chars[int(i)] for i in vec])
-	
+	return vec
 
 
 def encode_one_hot(list_of_labels, max_word_len=False, unique_chars=False):
