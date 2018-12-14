@@ -37,6 +37,11 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		# generate a list of unique characters of this dataset
 		self.unique_chars = find_unique_characters(self.training_df['labels'])
 
+	def save_unique_chars(self, path=r'data\unique_chars.txt'):
+		with open(path, 'w') as f:
+			f.write(''.join(self.unique_chars))
+
+
 	def __len__(self):
 		return self.training_df_len
 
@@ -122,7 +127,10 @@ def decode_single_vector(input_tensor, unique_chars, argmax_dim=1):
 	print (vec)
 
 	print([unique_chars[int(i)] for i in vec])
-	return vec
+	outstr = ''
+	outstr = ''.join([unique_chars[int(i)] for i in vec if int(i) != 0])
+	print(outstr)
+	return outstr
 
 
 def encode_one_hot(list_of_labels, max_word_len=False, unique_chars=False):
@@ -153,10 +161,3 @@ def encode_one_hot(list_of_labels, max_word_len=False, unique_chars=False):
 		tensors_to_stack.append(torch.from_numpy(current_word_array).float())
 	torch_stack = torch.stack(tensors_to_stack)
 	return torch_stack
-
-if __name__ == '__main__':
-	# x = OCR_dataset_loader(r'data\final.csv', r'C:\Users\Brooks\Desktop\OCR_data', None)
-	# print(x.unique_chars)
-	# a = encode_one_hot(x.training_df['labels'], x.max_str_len, x.unique_chars)
-	# print(a[1,:,:])
-	pass

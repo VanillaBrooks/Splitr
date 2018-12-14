@@ -4,24 +4,23 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 import string
 import pandas as pd
+import random
 
 
-def ascii_only(filename):
-	with open(filename, 'r', encoding='utf-8') as f:
+def ascii_only(file_to_filter):
+	with open(file_to_filter, 'r', encoding='utf-8') as f:
 		d = f.readlines()
 		inlist = [i.strip('\n') for i in d]
 	new = []
 
 	good_characters = set(string.ascii_letters + " 1234567890.,;'")
 
-	is_ascii = lambda x: x in good_characters
+	is_ascii = lambda x: x not in good_characters
 
 	for word in inlist:
 		good = True
 		for letter in word:
 			if is_ascii(letter):
-				continue
-			else:
 				good = False
 				break
 		if good:
@@ -40,6 +39,11 @@ def load_data(WORDLIST_FILE):
 	return data
 
 def gen_pillow(wordlist, path):
+
+	def dump_file(names, labels, i):
+		df = pd.DataFrame({'labels':labels, 'names':names})
+		df.to_csv(os.path.join(r'C:\Users\Brooks\github\Splitr\data', i+'.csv'), index=False)
+
 	fp = r'C:\Users\Brooks\github\Splitr\fonts'
 	fonts = os.listdir(fp)
 	L = len(fonts)
@@ -53,6 +57,8 @@ def gen_pillow(wordlist, path):
 
 	total_iter_track = 0
 	scale = 5
+	minx, maxx = int(scale*500 /20), int(scale* 500 *17/20)
+	miny, maxy = int(scale*80 /10), int(scale* 80 *14 /20)
 	try:
 		for k in range(len(fonts)):
 			current_font = fonts[k]
@@ -60,16 +66,23 @@ def gen_pillow(wordlist, path):
 			for i in range(len(wordlist)):
 				word = wordlist[i]
 
-				if len(word) > 14:
-					fontsize = 35*scale
-				else:
-					fontsize = 50 *scale
+				upper_bound = 20
+				if len(word) > 10:
+					upper_bound = 15
+
+				fontsize = random.randint(10,upper_bound) * scale
 
 				img = Image.new('L', (500*scale,80*scale), color=255)
-				# img = Image.new('RGB', (500*scale, 80*scale), color=(255,255,255))
+
+				x_offset = random.randint(minx, maxx)
+				y_offset = random.randint(miny, maxy)
+
+				if upper_bound != 20 and 70 < int(100 * x_offset/maxx):
+					x_offset = int(x_offset * (9/10))
+
 				d = ImageDraw.Draw(img)
 				fnt = ImageFont.truetype(os.path.join(fp, current_font), fontsize)
-				d.text((10,-10), word, fill=0, font=fnt)
+				d.text((x_offset,y_offset), word, fill=0, font=fnt)
 
 				if scale != 1:
 					img = img.resize((500,80), Image.LANCZOS)
@@ -83,15 +96,11 @@ def gen_pillow(wordlist, path):
 
 				total_iter_track += 1
 
-				if total_iter_track % 100000 == 0:
+				if total_iter_track % 10000 == 0:
 					print('done percent: %s' % (100*(1/len(fonts))*(1/len(wordlist))*total_iter_track))
 
 	finally:
-		dump_file(names, labels, 'final')
-
-def dump_file(names, labels, i):
-	df = pd.DataFrame({'labels':labels, 'names':names})
-	df.to_csv(i+'.csv', index=False)
+		dump_file(names, labels, 'training_data')
 
 def unique_characters(wordlist, path):
 	t = len(wordlist)
@@ -114,12 +123,11 @@ def unique_characters(wordlist, path):
 
 def delete_old_files(fpath):
 	files = os.listdir(fpath)
+	print(files)
 
 	for f in files:
 		file_path =os.path.join(fpath, f)
 		os.remove(file_path)
-
-
 
 # config
 WORDLIST_FILE = r'data\trainwords.txt'
@@ -127,12 +135,16 @@ OCR_DATA_PATH = r'C:\Users\Brooks\Desktop\OCR_data'	# where to dump the generate
 UNIQUE_CHARS_PATH = r'data\unique_characters.txt'
 delete_old_data = False						# remove older files in folder. faster than windows delete
 gen_unique= False							# create a file of unique characters that are being trained
+crop_dataset = False
 
 if __name__ == '__main__':
-	# ascii_only('trainwords_old.txt')
+	# ascii_only(r'C:\Users\Brooks\github\Splitr\data\trainwords_old.txt')
 	if delete_old_data:
 		delete_old_files(OCR_DATA_PATH)
-	words = load_data(WORDLIST_FILE)[:10000]
-	# gen_pillow(words, OCR_DATA_PATH)
-	if gen_unique:
-		unique_characters(words,UNIQUE_CHARS_PATH)
+	words = load_data(WORDLIST_FILE)
+	print(words)
+	if crop_dataset:
+		words = words[:crop_dataset]
+	gen_pillow(words, OCR_DATA_PATH)
+	# if gen_unique:
+	# 	unique_characters(words,UNIQUE_CHARS_PATH)
