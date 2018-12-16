@@ -2,11 +2,12 @@ import torch
 import time
 import model_utils
 from models import crnn
+import os
 
-def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num_hidden= 256, unique_char_count=57,rnn_layer_stack=1):
+def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num_hidden= 256, unique_char_count=57,rnn_layer_stack=1, LOAD_MODEL=False, LOAD_MODEL_PATH=False):
 	MODEL_SAVE_PATH = r'C:\Users\Brooks\github\Splitr\models\%s_%s_%s.model'
 	TXT_SAVE_PATH = r'C:\Users\Brooks\github\Splitr\models\%s.txt'
-	LOAD_MODEL_PATH = False
+
 	START_TIME = int(time.time())
 
 	# use gpu if it is available
@@ -17,14 +18,14 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num
 	OCR = crnn.model(channel_count,num_hidden, unique_char_count,rnn_layer_stack).to(device)
 
 	# option to resume training from last checkpoint
-	if LOAD_MODEL_PATH:
+	if LOAD_MODEL:
 		print('model loaded')
 		OCR.load_state_dict(torch.load(LOAD_MODEL_PATH))
 
 	# optimizer for stepping and CTC loss function for backprop
 	criterion = torch.nn.CTCLoss().to(device)
-	# optimizer = torch.optim.SGD(OCR.parameters(), lr=1e-1)
-	optimizer = torch.optim.Adadelta(OCR.parameters(), rho=.9)
+	# optimizer = torch.optim.SGD(OCR.parameters(), lr=.001, momentum=.90)
+	optimizer = torch.optim.Adam(OCR.parameters(), lr=5e-5, )
 
 	# initialize the Dataset. This is done so that we can work with more data
 	# than what is loadable into RAM
@@ -43,6 +44,7 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num
 		shuffle=shuffle)
 
 	epoch_loss = 0
+	previous_save_path = False
 	# iterate through all the designated epochs for training
 	for i in range(1,epochs+1):
 		# runing variables to keep track of data between batches
@@ -96,8 +98,13 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num
 
 				with open(TXT_SAVE_PATH % (START_TIME), 'a') as file:
 					file.write(batch_out_str + '\n')
+				if count % 100 *1 == 0:
+					save_path = MODEL_SAVE_PATH % (START_TIME, i, count)
+					torch.save(OCR.state_dict(), save_path)
+					if previous_save_path:
+						os.remove(previous_save_path)
+					previous_save_path = save_path
 
-				torch.save(OCR.state_dict(), MODEL_SAVE_PATH % (START_TIME, i, count))
 				epoch_loss += run_loss
 				prev_run_loss = run_loss
 				run_loss = 0
@@ -109,11 +116,13 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num
 
 if __name__ == '__main__':
 	# model parameters
-	channel_count=1,
-	num_hidden= 256,
-	unique_char_count=57,
+	channel_count=1
+	num_hidden= 256
+	unique_char_count=57
 	rnn_layer_stack=2
 
+	LOAD_MODEL =True
+	LOAD_MODEL_PATH = r'C:\Users\Brooks\github\Splitr\models\1544845177_1_15200.model'
 
 	train(
 		epochs=10000,
@@ -123,4 +132,6 @@ if __name__ == '__main__':
 		channel_count=channel_count,
 		num_hidden= num_hidden,
 		unique_char_count=unique_char_count,
-		rnn_layer_stack=rnn_layer_stack)
+		rnn_layer_stack=rnn_layer_stack,
+		LOAD_MODEL= LOAD_MODEL,
+		LOAD_MODEL_PATH=LOAD_MODEL_PATH)

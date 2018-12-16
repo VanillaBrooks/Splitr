@@ -120,17 +120,27 @@ def encode_single_vector(list_of_labels, max_word_len=False, unique_chars=False)
 def decode_single_vector(input_tensor, unique_chars, argmax_dim=1):
 	word_vector = torch.argmax(input_tensor, argmax_dim)
 	print(unique_chars)
-	# print('the word vector is :')
-	# print(word_vector.shape)
-	# print(input_tensor.shape)
 	vec = word_vector.squeeze()
 	print (vec)
 
-	print([unique_chars[int(i)] for i in vec])
-	outstr = ''
-	outstr = ''.join([unique_chars[int(i)] for i in vec if int(i) != 0])
-	print(outstr)
-	return outstr
+	characters  = [unique_chars[int(i)] for i in vec]
+	print(len(characters), characters)
+	raw_outstr = ''
+	format_outstr = ''
+
+	previous_character = ' '
+	for index in vec:
+		character = unique_chars[int(index)]
+
+		if character == ' ':
+			pass
+		elif character != previous_character:
+			raw_outstr += character
+			format_outstr += character
+		else:
+			raw_outstr += character
+		previous_character = character
+	return (raw_outstr, format_outstr)
 
 
 def encode_one_hot(list_of_labels, max_word_len=False, unique_chars=False):

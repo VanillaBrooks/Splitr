@@ -15,7 +15,8 @@ class BDSM(torch.nn.Module):
 	def __init__(self, num_inputs, num_hidden_layers,layer_count=1):
 		super(BDSM, self).__init__()
 
-		self.rnn = torch.nn.LSTM(num_inputs, num_hidden_layers, bidirectional=True, batch_first=True, num_layers=layer_count)
+
+		self.rnn = torch.nn.LSTM(num_inputs, num_hidden_layers, num_layers=layer_count, bidirectional=True, batch_first=True)
 
 	def forward(self, x):
 		rnn_output, _ = self.rnn(x)
@@ -23,7 +24,7 @@ class BDSM(torch.nn.Module):
 
 # Convolution cell with adjustable activation / maxpool size / batchnorm
 class CNN_cell(torch.nn.Module):
-	def __init__(self,in_channels=False,out_channels=False,kernel_size=False,activation=False, pool_shape=False, pool_stride=False, batchnorm=False):
+	def __init__(self,in_channels=False,out_channels=False,kernel_size=3,activation=False, pool_shape=False, pool_stride=False, batchnorm=False):
 		super(CNN_cell, self).__init__()
 
 		_layers = []
@@ -57,15 +58,14 @@ class model(torch.nn.Module):
 	def __init__(self, channel_count=1,num_hidden= 256, unique_char_count=57,rnn_layer_stack=1):
 		super(model, self).__init__()
 
-		# add batch norm later
 		# add dropout to cnn layers
 		self.softmax = torch.nn.LogSoftmax(dim=2)
 
 		# CONVOLUTIONS
 		_cnn_layer = []
-		_cnn_layer.append(CNN_cell(in_channels=channel_count, out_channels=64, kernel_size=3, activation='relu', pool_shape=(2,2), pool_stride=2))
+		_cnn_layer.append(CNN_cell(in_channels=1,   out_channels=64,  kernel_size=3, activation='relu', pool_shape=(2,2), pool_stride=2))
 
-		_cnn_layer.append(CNN_cell(in_channels=64, out_channels=128, kernel_size=3,activation='relu', pool_shape=(2,2), pool_stride=2))
+		_cnn_layer.append(CNN_cell(in_channels=64 , out_channels=128, kernel_size=3, activation='relu', pool_shape=(2,2), pool_stride=2))
 
 		_cnn_layer.append(CNN_cell(in_channels=128, out_channels=256, kernel_size=3, activation='relu'))
 
