@@ -86,6 +86,7 @@ def build_tensor_stack(list_of_numpy_array):
 
 			image = cv2.resize(image, dsize=(new_width, new_height), interpolation=cv2.INTER_CUBIC)
 
+		if padding_height or padding_width:
 			# recalculate the padding that the image needs
 			padding_height = calculate_padding(DESIRED_HEIGHT, new_height)
 			padding_width = calculate_padding(DESIRED_WIDTH, new_width)

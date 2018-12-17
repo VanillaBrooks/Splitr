@@ -32,8 +32,7 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num
 	training_set = model_utils.OCR_dataset_loader(
 		csv_file_path = r'C:\Users\Brooks\github\Splitr\data\training_data.csv',
 		path_to_data =r'C:\Users\Brooks\Desktop\OCR_data',
-		crop_dataset=False,
-		transform = False)
+		transform = torchvision.transforms.Compose([Rotate(20), Pad()]))
 
 	# initialize the training data into a dataloader for batch pulling
 	# and shuffling the data
@@ -122,7 +121,8 @@ if __name__ == '__main__':
 	rnn_layer_stack=2
 
 	LOAD_MODEL =True
-	LOAD_MODEL_PATH = r'C:\Users\Brooks\github\Splitr\models\1544845177_1_15200.model'
+	LOAD_MODEL_PATH = r'models\CRNN_2rnn_256hidden_57char_1channel.model'
+
 
 	train(
 		epochs=10000,

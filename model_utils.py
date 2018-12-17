@@ -1,14 +1,18 @@
 import torch.utils.data
 import pandas as pd
-from skimage import io
+from skimage import io, transform
 import os
 from build_training_data import OCR_DATA_PATH as training_data_path
 from build_tensor import build_tensor_stack
 import numpy as np
 import torch
+import torchvision
+import random
+import cv2 as cv
+
 
 class OCR_dataset_loader(torch.utils.data.Dataset):
-	def __init__(self, csv_file_path, path_to_data, crop_dataset=False, transform=False):
+	def __init__(self, csv_file_path, path_to_data, transform):
 		"""
 		Arguments:
 			csv_file_path (string): csv file with
@@ -22,14 +26,6 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		self.root_dir = path_to_data
 		self.transform = transform
 
-		# if we are only working with a portion of the data loader
-		if crop_dataset:
-			self.training_df = self.training_df[:crop_dataset]
-
-		# for encode decode
-		self.char_count = 3
-		self.characters = {'PAD':0}
-
 		# get the maximum length of string in the data
 		self.max_str_len = self.training_df.labels.map(lambda x: len(str(x))).max()
 		self.training_df_len = len(self.training_df)
@@ -37,10 +33,10 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		# generate a list of unique characters of this dataset
 		self.unique_chars = find_unique_characters(self.training_df['labels'])
 
+		self.to_PIL = torchvision.transforms.ToPILImage()
 	def save_unique_chars(self, path=r'data\unique_chars.txt'):
 		with open(path, 'w') as f:
 			f.write(''.join(self.unique_chars))
-
 
 	def __len__(self):
 		return self.training_df_len
@@ -53,14 +49,87 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		local_img_path = row_of_csv[1]
 
 		full_img_path = os.path.join(self.root_dir,local_img_path)
-		image = io.imread(full_img_path)	#numpy array of the image being fetched
-		image = torch.from_numpy(image.astype(np.float32))
+		image = io.imread(full_img_path).astype(np.float32)
 
 		# transform the image if needed
 		if self.transform:
 			image = self.transform(image)
 
-		return image , image_text
+		if isinstance(image, np.ndarray):
+			image= torch.from_numpy(image)
+		# print(image.shape)
+		return image,image_text
+
+class Rotate():
+	def __init__ (self, max_angle):
+		self.angle = max_angle
+
+	def __call__(self, image):
+		angle = random.uniform(-1*self.angle, self.angle)
+		image = transform.rotate(image, angle, resize=True, clip=False, preserve_range=True, cval=255)
+
+		return image
+class Pad():
+	def __init__(self):
+		self.DESIRED_WIDTH = 500
+		self.DESIRED_HEIGHT = 80
+
+	def __call__(self, image):
+		calculate_padding = lambda desired, actual: desired-actual
+
+		dims = image.shape
+		height, width = dims[0], dims[1]
+
+		height_ratio, width_ratio = 0,0
+		padding_height, padding_width = 0, 0
+		pad_top, pad_bot, pad_left, pad_right = 0 ,0, 0, 0
+
+		# find the current conditions of the height
+		if height < self.DESIRED_HEIGHT:
+			padding_height = calculate_padding(self.DESIRED_HEIGHT, height)
+		else:
+			height_ratio = self.DESIRED_HEIGHT/ height
+
+		if width < self.DESIRED_WIDTH:
+			padding_width = calculate_padding(self.DESIRED_WIDTH, width)
+		else:
+			width_ratio = self.DESIRED_WIDTH / width
+
+
+
+		if width_ratio > height_ratio:
+			height_ratio = width_ratio
+		if height_ratio >  width_ratio:
+			width_ratio = height_ratio
+
+
+		if height_ratio or width_ratio:
+			new_height = int(height_ratio * height)
+			new_width  = int(width_ratio * width)
+
+			image = cv.resize(image, dsize=(new_width, new_height), interpolation=cv.INTER_CUBIC)
+
+			padding_height = calculate_padding(self.DESIRED_HEIGHT, new_height)
+			padding_width = calculate_padding(self.DESIRED_WIDTH, new_width)
+
+
+		if padding_height > 0:
+			pad_top = random.randint(0, padding_height)
+			pad_bot = padding_height - pad_top
+
+		if padding_width > 0:
+			pad_left = random.randint(0, padding_width)
+			pad_right = padding_width - pad_left
+
+
+		if padding_height <0 or padding_width <0:
+			raise ValueError('ooooh shit the images were not resized correctly you better hit up brooks about this one')
+
+
+		pad_function = torch.nn.ConstantPad2d((pad_left, pad_right, pad_top,pad_bot),255)
+		result = pad_function(torch.from_numpy(image).float())
+		return result
+
 
 def find_unique_characters(list_to_parse):
 	unique_chars = list()
@@ -142,7 +211,6 @@ def decode_single_vector(input_tensor, unique_chars, argmax_dim=1):
 		previous_character = character
 	return (raw_outstr, format_outstr)
 
-
 def encode_one_hot(list_of_labels, max_word_len=False, unique_chars=False):
 	# calculate max_word_len if not already done
 	if not max_word_len:
@@ -171,3 +239,29 @@ def encode_one_hot(list_of_labels, max_word_len=False, unique_chars=False):
 		tensors_to_stack.append(torch.from_numpy(current_word_array).float())
 	torch_stack = torch.stack(tensors_to_stack)
 	return torch_stack
+
+
+if __name__ == '__main__':
+	# transforms = torchvision.transforms.Compose([Rotate(20), Pad()])
+	#
+	# training_set = OCR_dataset_loader(
+	# 	csv_file_path = r'C:\Users\Brooks\github\Splitr\data\training_data.csv',
+	# 	path_to_data =r'C:\Users\Brooks\Desktop\OCR_data_2',
+	# 	transform = transforms)
+	#
+	# training_data = torch.utils.data.DataLoader(
+	# 	training_set,
+	# 	batch_size=1,
+	# 	num_workers=8,
+	# 	shuffle=0)
+	#
+	# for i in training_data:
+	# 	pass
+	#
+	#
+	p = Pad()
+
+	img = io.imread(r'C:\Users\Brooks\Desktop\OCR_data_2\0.jpg')
+	print(img.shape)
+	img= p.__call__(img)
+	print(img.shape)
