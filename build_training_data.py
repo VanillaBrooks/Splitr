@@ -7,6 +7,8 @@ import pandas as pd
 import random
 import torchvision
 
+from multiprocessing import Process
+
 class FontChoice():
 	def __init__(self, font_directory):
 		self.original_fonts = os.listdir(font_directory)
@@ -30,7 +32,7 @@ class WordChoice():
 	def pick_word(self, count):
 		words_to_return = []
 		for i in range(count):
-			if self.len == 0:
+			if len(self.words) == 0:
 				self._init_words()
 
 			words_to_return.append(self.words.pop(0))
@@ -162,8 +164,8 @@ def gen_pillow(wordlist, path, GENERATION_COUNT):
 
 	dump_file(names, labels, 'training_data')
 
-def gen_pillow_small(wordlist, path, GENERATION_COUNT):
-
+def gen_pillow_small(process_name, GENERATION_COUNT, PROCESS_COUNT,path, wordlist):
+	GENERATION_COUNT = int(GENERATION_COUNT/ PROCESS_COUNT)
 	def dump_file(names, labels, i):
 		df = pd.DataFrame({'labels':labels, 'names':names})
 		df.to_csv(os.path.join(r'C:\Users\Brooks\github\Splitr\data', i+'.csv'), index=False)
@@ -175,7 +177,7 @@ def gen_pillow_small(wordlist, path, GENERATION_COUNT):
 
 	total_iter_track = 0
 	scale = 1
-
+	# try:
 	while total_iter_track <= GENERATION_COUNT:
 		current_font = FontPicker.pick_font()
 		word_string = make_string(WordPicker.pick_word(random.randint(2,5)))
@@ -196,18 +198,21 @@ def gen_pillow_small(wordlist, path, GENERATION_COUNT):
 			img = img.resize((600,20), Image.LANCZOS)
 		img = trim(img)
 
-		img_save_path = os.path.join(path, str(total_iter_track) + '.jpg')
+		img_save_path = os.path.join(path, str(total_iter_track) + ' _' + str(process_name)+ '.jpg')
 		imwrite(img_save_path, np.array(img))
 
-		names.append(str(total_iter_track) +'.jpg')
+		names.append(str(total_iter_track) +'_' + str(process_name) +'.jpg')
 		labels.append(word_string)
 
 		total_iter_track += 1
 
 		if total_iter_track % 10000 == 0:
 			print('done percent: {}'.format(100*total_iter_track / GENERATION_COUNT))
+	# except Exception as e:
+	# 	print(e)
+	# finally:
+	dump_file(names, labels, 'training_data' + str(process_name))
 
-	dump_file(names, labels, 'training_data')
 
 def trim(im):
 	bg = Image.new(im.mode, im.size, im.getpixel((0,0)))
@@ -237,34 +242,73 @@ def unique_characters(wordlist, path):
 	with open(path, 'w') as f:
 		f.write(new_string)
 
-def delete_old_files(fpath):
-	files = os.listdir(fpath)
-	print(files)
+def __del_data(files, fpath):
+	files_copy = files[:]
+	redo_files = []
 
-	for f in files:
-		file_path =os.path.join(fpath, f)
-		os.remove(file_path)
+	while True:
+		try:
+			if len(files) == 0:
+				if len(redo_files) == 0:
+					return False
+				else:
+					files = redo_files[:]
+					redo_files = []
+
+			for f in files:
+				file_path =os.path.join(fpath, f)
+				files_copy.remove(f)
+				os.remove(file_path)
+			files = files_copy[:]
+		except Exception as e:
+			print('deletion exception %s'% e)
+			files = files_copy[:]
+			redo_files.append(f)
+			sleep(.01)
+
+def delete_old_data(path=False):
+	def chunks(l, n):
+		ret = [l[i:i+n] for i in range(0, len(l), n)]
+		return ret
+
+	if not path:
+		from build_training_data import OCR_DATA_PATH as path
+
+	num_process = 10
+	files  = os.listdir(path)
+	chunk_size = int(len(files) / num_process)
+
+	files = chunks(files,chunk_size)
+
+	for i in files:
+		print('here')
+		p = Process(target=__del_data, args=(i, path))
+		p.start()
+
+def merge_csv(path):
+	files = os.listdir(path)
+	csvs = [i for i in files if 'training_data' in i]
+	frames = [pd.read_csv(os.path.join(path,fname)) for fname in csvs]
+	stacked = pd.concat(frames)
+	stacked.to_csv(os.path.join(path, 'training_data.csv'), index=False)
 
 # config
 WORDLIST_FILE = r'data\trainwords.txt'
 OCR_DATA_PATH = r'C:\Users\Brooks\Desktop\OCR_data'	# where to dump the generated images
 # OCR_DATA_PATH = r'C:\Users\Brooks\Desktop\test'
 UNIQUE_CHARS_PATH = r'data\unique_characters.txt'
-delete_old_data = False						# remove older files in folder. faster than windows delete
 gen_unique= False							# create a file of unique characters that are being trained
 crop_dataset = False
-GENERATION_COUNT = 15e6
+GENERATION_COUNT = 3e6
+PROCESS_COUNT = 4
 
 # 318628
 if __name__ == '__main__':
 	# ascii_only(r'C:\Users\Brooks\github\Splitr\data\trainwords_old.txt')
-	if delete_old_data:
-		delete_old_files(OCR_DATA_PATH)
 	words = load_data(WORDLIST_FILE)
-	# if crop_dataset:
-	# 	words = words[:crop_dataset]
-	# gen_pillow(words, OCR_DATA_PATH, GENERATION_COUNT)
-	# if gen_unique:
-	# 	unique_characters(words,UNIQUE_CHARS_PATH)
-
-	gen_pillow_small(words,OCR_DATA_PATH, GENERATION_COUNT)
+	delete_old_data()
+	# for i in range(PROCESS_COUNT):
+	# 	p = Process(target=gen_pillow_small, args=(i,GENERATION_COUNT,PROCESS_COUNT,OCR_DATA_PATH,words))
+	# 	p.start()
+	# 	print(i)
+	# merge_csv(r'C:\Users\Brooks\github\Splitr\data')

@@ -57,6 +57,7 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 
 		if isinstance(image, np.ndarray):
 			image= torch.from_numpy(image)
+
 		# print(image.shape)
 		return image,image_text
 
@@ -76,12 +77,13 @@ class Pad():
 
 	def __call__(self, image):
 		calculate_padding = lambda desired, actual: desired-actual
+		rounder = lambda desired, actual: actual + (desired - actual)
 
 		dims = image.shape
 		height, width = dims[0], dims[1]
 
 		height_ratio, width_ratio = 0,0
-		padding_height, padding_width = 0, 0
+		padding_height, padding_width = 0,0
 		pad_top, pad_bot, pad_left, pad_right = 0 ,0, 0, 0
 
 		# find the current conditions of the height
@@ -95,23 +97,22 @@ class Pad():
 		else:
 			width_ratio = self.DESIRED_WIDTH / width
 
-
-
-		if width_ratio > height_ratio:
+		if width_ratio < height_ratio:
 			height_ratio = width_ratio
-		if height_ratio >  width_ratio:
+		if height_ratio <  width_ratio:
 			width_ratio = height_ratio
 
-
 		if height_ratio or width_ratio:
-			new_height = int(height_ratio * height)
-			new_width  = int(width_ratio * width)
+			new_height = rounder(self.DESIRED_HEIGHT, int(height_ratio * height))
+			new_width  = rounder(self.DESIRED_HEIGHT, int(width_ratio * width))
 
 			image = cv.resize(image, dsize=(new_width, new_height), interpolation=cv.INTER_CUBIC)
 
 			padding_height = calculate_padding(self.DESIRED_HEIGHT, new_height)
 			padding_width = calculate_padding(self.DESIRED_WIDTH, new_width)
 
+		if padding_height <0 or padding_width <0:
+			raise ValueError('ooooh shit the images were not resized correctly you better hit up brooks about this one')
 
 		if padding_height > 0:
 			pad_top = random.randint(0, padding_height)
@@ -120,10 +121,6 @@ class Pad():
 		if padding_width > 0:
 			pad_left = random.randint(0, padding_width)
 			pad_right = padding_width - pad_left
-
-
-		if padding_height <0 or padding_width <0:
-			raise ValueError('ooooh shit the images were not resized correctly you better hit up brooks about this one')
 
 
 		pad_function = torch.nn.ConstantPad2d((pad_left, pad_right, pad_top,pad_bot),255)
@@ -240,28 +237,19 @@ def encode_one_hot(list_of_labels, max_word_len=False, unique_chars=False):
 	torch_stack = torch.stack(tensors_to_stack)
 	return torch_stack
 
-
 if __name__ == '__main__':
-	# transforms = torchvision.transforms.Compose([Rotate(20), Pad()])
-	#
-	# training_set = OCR_dataset_loader(
-	# 	csv_file_path = r'C:\Users\Brooks\github\Splitr\data\training_data.csv',
-	# 	path_to_data =r'C:\Users\Brooks\Desktop\OCR_data_2',
-	# 	transform = transforms)
-	#
-	# training_data = torch.utils.data.DataLoader(
-	# 	training_set,
-	# 	batch_size=1,
-	# 	num_workers=8,
-	# 	shuffle=0)
-	#
-	# for i in training_data:
-	# 	pass
-	#
-	#
-	p = Pad()
+	transforms = torchvision.transforms.Compose([Rotate(20), Pad()])
 
-	img = io.imread(r'C:\Users\Brooks\Desktop\OCR_data_2\0.jpg')
-	print(img.shape)
-	img= p.__call__(img)
-	print(img.shape)
+	training_set = OCR_dataset_loader(
+		csv_file_path = r'C:\Users\Brooks\github\Splitr\data\training_data.csv',
+		path_to_data  = r'C:\Users\Brooks\Desktop\OCR_data',
+		transform = transforms)
+
+	training_data = torch.utils.data.DataLoader(
+		training_set,
+		batch_size=1,
+		num_workers=8,
+		shuffle=0)
+	for j in range(5):
+		for i in training_data:
+			pass
