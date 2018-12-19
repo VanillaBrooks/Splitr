@@ -198,7 +198,7 @@ def gen_pillow_small(process_name, GENERATION_COUNT, PROCESS_COUNT,path, wordlis
 			img = img.resize((600,20), Image.LANCZOS)
 		img = trim(img)
 
-		img_save_path = os.path.join(path, str(total_iter_track) + ' _' + str(process_name)+ '.jpg')
+		img_save_path = os.path.join(path, str(total_iter_track) + '_' + str(process_name)+ '.jpg')
 		imwrite(img_save_path, np.array(img))
 
 		names.append(str(total_iter_track) +'_' + str(process_name) +'.jpg')
@@ -300,15 +300,20 @@ UNIQUE_CHARS_PATH = r'data\unique_characters.txt'
 gen_unique= False							# create a file of unique characters that are being trained
 crop_dataset = False
 GENERATION_COUNT = 3e6
-PROCESS_COUNT = 4
+PROCESS_COUNT = 6
 
 # 318628
 if __name__ == '__main__':
 	# ascii_only(r'C:\Users\Brooks\github\Splitr\data\trainwords_old.txt')
 	words = load_data(WORDLIST_FILE)
-	delete_old_data()
+	# delete_old_data()
+	import time
+	# t= time.time()
 	# for i in range(PROCESS_COUNT):
 	# 	p = Process(target=gen_pillow_small, args=(i,GENERATION_COUNT,PROCESS_COUNT,OCR_DATA_PATH,words))
 	# 	p.start()
 	# 	print(i)
-	# merge_csv(r'C:\Users\Brooks\github\Splitr\data')
+
+	merge_csv(r'C:\Users\Brooks\github\Splitr\data')
+
+	print('total runtime: %s' %(time.time()-t))

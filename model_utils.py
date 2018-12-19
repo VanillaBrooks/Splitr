@@ -9,6 +9,7 @@ import torch
 import torchvision
 import random
 import cv2 as cv
+import math
 
 
 class OCR_dataset_loader(torch.utils.data.Dataset):
@@ -33,7 +34,7 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		# generate a list of unique characters of this dataset
 		self.unique_chars = find_unique_characters(self.training_df['labels'])
 
-		self.to_PIL = torchvision.transforms.ToPILImage()
+		
 	def save_unique_chars(self, path=r'data\unique_chars.txt'):
 		with open(path, 'w') as f:
 			f.write(''.join(self.unique_chars))
@@ -47,6 +48,7 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		# organize the data
 		image_text= row_of_csv[0]
 		local_img_path = row_of_csv[1]
+		local_img_path = local_img_path[:-6] + ' ' + local_img_path[-6:]
 
 		full_img_path = os.path.join(self.root_dir,local_img_path)
 		image = io.imread(full_img_path).astype(np.float32)
@@ -55,11 +57,14 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		if self.transform:
 			image = self.transform(image)
 
+		# cv.imwrite(os.path.join(r'C:\Users\Brooks\Desktop\test', local_img_path), image)
+
 		if isinstance(image, np.ndarray):
 			image= torch.from_numpy(image)
+		image = image[None, : , : ]
 
 		# print(image.shape)
-		return image,image_text
+		return image, image_text
 
 class Rotate():
 	def __init__ (self, max_angle):
@@ -70,49 +75,49 @@ class Rotate():
 		image = transform.rotate(image, angle, resize=True, clip=False, preserve_range=True, cval=255)
 
 		return image
+
 class Pad():
 	def __init__(self):
 		self.DESIRED_WIDTH = 500
-		self.DESIRED_HEIGHT = 80
+		self.DESIRED_HEIGHT = 40
 
 	def __call__(self, image):
 		calculate_padding = lambda desired, actual: desired-actual
-		rounder = lambda desired, actual: actual + (desired - actual)
 
 		dims = image.shape
 		height, width = dims[0], dims[1]
 
-		height_ratio, width_ratio = 0,0
-		padding_height, padding_width = 0,0
+		h_ratio,w_ratio,ratio = 0, 0 ,0
+
+		debug = 'initial height was {}, initial width was {} \n'.format(height,width)
+
+
+		if height > self.DESIRED_HEIGHT:
+			h_ratio = height / self.DESIRED_HEIGHT
+		if width > self.DESIRED_WIDTH:
+			w_ratio = width / self.DESIRED_WIDTH
+
+
+		if h_ratio > w_ratio:
+			ratio = h_ratio
+		elif w_ratio >= h_ratio:
+			ratio = w_ratio
+
+		debug += 'h_ratio is {} w_ratio is {} \n result ratio is {}\n'.format(h_ratio, w_ratio, ratio)
+
+		if ratio:
+			height= math.floor(height / ratio)
+			width = math.floor(width / ratio)
+
+			debug = 'resized height was {}, resized width was {} \n'.format(height,width)
+
+			image = cv.resize(image, dsize=(width, height), interpolation=cv.INTER_CUBIC)
+
+
+		padding_height = calculate_padding(self.DESIRED_HEIGHT, height)
+		padding_width = calculate_padding(self.DESIRED_WIDTH, width)
+
 		pad_top, pad_bot, pad_left, pad_right = 0 ,0, 0, 0
-
-		# find the current conditions of the height
-		if height < self.DESIRED_HEIGHT:
-			padding_height = calculate_padding(self.DESIRED_HEIGHT, height)
-		else:
-			height_ratio = self.DESIRED_HEIGHT/ height
-
-		if width < self.DESIRED_WIDTH:
-			padding_width = calculate_padding(self.DESIRED_WIDTH, width)
-		else:
-			width_ratio = self.DESIRED_WIDTH / width
-
-		if width_ratio < height_ratio:
-			height_ratio = width_ratio
-		if height_ratio <  width_ratio:
-			width_ratio = height_ratio
-
-		if height_ratio or width_ratio:
-			new_height = rounder(self.DESIRED_HEIGHT, int(height_ratio * height))
-			new_width  = rounder(self.DESIRED_HEIGHT, int(width_ratio * width))
-
-			image = cv.resize(image, dsize=(new_width, new_height), interpolation=cv.INTER_CUBIC)
-
-			padding_height = calculate_padding(self.DESIRED_HEIGHT, new_height)
-			padding_width = calculate_padding(self.DESIRED_WIDTH, new_width)
-
-		if padding_height <0 or padding_width <0:
-			raise ValueError('ooooh shit the images were not resized correctly you better hit up brooks about this one')
 
 		if padding_height > 0:
 			pad_top = random.randint(0, padding_height)
@@ -122,9 +127,19 @@ class Pad():
 			pad_left = random.randint(0, padding_width)
 			pad_right = padding_width - pad_left
 
+		debug += 'padding height is {} padtop: {} pad bot {} \npadding width is {} pad_left {} pad right {}'.format(padding_height, pad_top, pad_bot, padding_width, pad_left,pad_right)
+
 
 		pad_function = torch.nn.ConstantPad2d((pad_left, pad_right, pad_top,pad_bot),255)
 		result = pad_function(torch.from_numpy(image).float())
+
+		height,width = result.shape
+		debug += 'final height {} final width {}'.format(height, width)
+
+		if height != self.DESIRED_HEIGHT or width != self.DESIRED_WIDTH:
+			print(debug)
+			raise ValueError('dims not correctly done in Pad')
+
 		return result
 
 
@@ -238,7 +253,7 @@ def encode_one_hot(list_of_labels, max_word_len=False, unique_chars=False):
 	return torch_stack
 
 if __name__ == '__main__':
-	transforms = torchvision.transforms.Compose([Rotate(20), Pad()])
+	transforms = torchvision.transforms.Compose([Rotate(5), Pad()])
 
 	training_set = OCR_dataset_loader(
 		csv_file_path = r'C:\Users\Brooks\github\Splitr\data\training_data.csv',
@@ -248,8 +263,9 @@ if __name__ == '__main__':
 	training_data = torch.utils.data.DataLoader(
 		training_set,
 		batch_size=1,
-		num_workers=8,
+		num_workers=0,
 		shuffle=0)
+
 	for j in range(5):
 		for i in training_data:
 			pass

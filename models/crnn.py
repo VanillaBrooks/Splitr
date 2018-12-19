@@ -12,15 +12,27 @@ import model_utils
 # this is really a constructor for a bidirectional LSTM but i figured
 # BD_LSTM  was only 2 letters off of BDSM so why not
 class BDSM(torch.nn.Module):
-	def __init__(self, num_inputs, num_hidden_layers,layer_count=1):
+	def __init__(self, num_inputs, num_hidden_layers,char_in, char_out, layer_count=1):
 		super(BDSM, self).__init__()
+		self.char_out = char_out
 
 
 		self.rnn = torch.nn.LSTM(num_inputs, num_hidden_layers, num_layers=layer_count, bidirectional=True, batch_first=True)
+		self.linear = torch.nn.Linear(char_in, char_out)
+		self.relu = torch.nn.ReLU()
 
 	def forward(self, x):
 		rnn_output, _ = self.rnn(x)
-		return rnn_output
+
+		batch, char_count, depth = rnn_output.shape
+		rnn_output = rnn_output.contiguous().view(batch*depth, char_count)
+
+		linear = self.linear(rnn_output)
+		output = linear.view(batch, self.char_out, depth)
+
+		output =self.relu(output)
+
+		return output
 
 # Convolution cell with adjustable activation / maxpool size / batchnorm
 class CNN_cell(torch.nn.Module):
@@ -63,7 +75,7 @@ class model(torch.nn.Module):
 
 		# CONVOLUTIONS
 		_cnn_layer = []
-		_cnn_layer.append(CNN_cell(in_channels=1,   out_channels=64,  kernel_size=3, activation='relu', pool_shape=(2,2), pool_stride=2))
+		_cnn_layer.append(CNN_cell(in_channels=1,   out_channels=64,  kernel_size=3, activation='relu', pool_shape=False, pool_stride=False))
 
 		_cnn_layer.append(CNN_cell(in_channels=64 , out_channels=128, kernel_size=3, activation='relu', pool_shape=(2,2), pool_stride=2))
 
@@ -79,8 +91,8 @@ class model(torch.nn.Module):
 
 		# RNN LAYERS
 		_bdsm_layer = []
-		_bdsm_layer.append(BDSM(num_inputs=2048, num_hidden_layers=num_hidden, layer_count=rnn_layer_stack))
-		_bdsm_layer.append(BDSM(num_inputs=num_hidden*2, num_hidden_layers=num_hidden, layer_count=1))
+		_bdsm_layer.append(BDSM(num_inputs=2048, num_hidden_layers=num_hidden, char_in=119,char_out=119, layer_count=rnn_layer_stack))
+		_bdsm_layer.append(BDSM(num_inputs=num_hidden*2, num_hidden_layers=num_hidden,char_in= 119, char_out=119, layer_count=1))
 
 		# CHAR activations (transcription)
 		self.linear = torch.nn.Sequential(
@@ -92,8 +104,14 @@ class model(torch.nn.Module):
 	def forward(self, x):
 		t = self.cnn(x)
 		batch, depth, base, height = t.shape
+		# print('cnn shape: ', print(t.shape))
+		# import sys
+
 
 		cnn_output = t.view(batch, height, depth*base)
+
+		# print('after reshape', cnn_output.shape)
+		# sys.exit('exits')
 
 		rnn_output = self.rnn(cnn_output)
 		batch, char_len, depth = rnn_output.shape

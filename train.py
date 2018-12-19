@@ -3,6 +3,8 @@ import time
 import model_utils
 from models import crnn
 import os
+import torchvision
+from multiprocessing import Pool
 
 def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num_hidden= 256, unique_char_count=57,rnn_layer_stack=1, LOAD_MODEL=False, LOAD_MODEL_PATH=False):
 	MODEL_SAVE_PATH = r'C:\Users\Brooks\github\Splitr\models\%s_%s_%s.model'
@@ -24,15 +26,14 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num
 
 	# optimizer for stepping and CTC loss function for backprop
 	criterion = torch.nn.CTCLoss().to(device)
-	# optimizer = torch.optim.SGD(OCR.parameters(), lr=.001, momentum=.90)
-	optimizer = torch.optim.Adam(OCR.parameters(), lr=5e-5, )
+	optimizer = torch.optim.Adam(OCR.parameters(), lr=1e-2)
 
 	# initialize the Dataset. This is done so that we can work with more data
 	# than what is loadable into RAM
 	training_set = model_utils.OCR_dataset_loader(
 		csv_file_path = r'C:\Users\Brooks\github\Splitr\data\training_data.csv',
 		path_to_data =r'C:\Users\Brooks\Desktop\OCR_data',
-		transform = torchvision.transforms.Compose([Rotate(20), Pad()]))
+		transform = torchvision.transforms.Compose([model_utils.Rotate(5), model_utils.Pad()]))
 
 	# initialize the training data into a dataloader for batch pulling
 	# and shuffling the data
@@ -55,7 +56,8 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num
 			count += 1
 
 			# convert the image batch to a 4D tensor (avoid error in forward call)
-			training_img_batch = training_img_batch[:,None,:,:].to(device)
+			training_img_batch = training_img_batch.to(device)
+
 			# construct a list of all the lengths of strings in the data
 			target_length_list = [len(word) for word in training_label_batch]
 
@@ -117,16 +119,16 @@ if __name__ == '__main__':
 	# model parameters
 	channel_count=1
 	num_hidden= 256
-	unique_char_count=57
-	rnn_layer_stack=2
+	unique_char_count=80
+	rnn_layer_stack=3
 
-	LOAD_MODEL =True
+	LOAD_MODEL =False
 	LOAD_MODEL_PATH = r'models\CRNN_2rnn_256hidden_57char_1channel.model'
 
 
 	train(
 		epochs=10000,
-		batch_size=90,
+		batch_size=32,
 		workers=8,
 		shuffle=True,
 		channel_count=channel_count,
