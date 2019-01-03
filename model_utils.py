@@ -3,7 +3,6 @@ import pandas as pd
 from skimage import io, transform
 import os
 from build_training_data import OCR_DATA_PATH as training_data_path
-from build_tensor import build_tensor_stack
 import numpy as np
 import torch
 import torchvision
@@ -29,12 +28,13 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 
 		# get the maximum length of string in the data
 		self.max_str_len = self.training_df.labels.map(lambda x: len(str(x))).max()
+		print('the max str len is %s'% self.max_str_len)
 		self.training_df_len = len(self.training_df)
 
 		# generate a list of unique characters of this dataset
 		self.unique_chars = find_unique_characters(self.training_df['labels'])
 
-		
+
 	def save_unique_chars(self, path=r'data\unique_chars.txt'):
 		with open(path, 'w') as f:
 			f.write(''.join(self.unique_chars))
@@ -57,13 +57,13 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		if self.transform:
 			image = self.transform(image)
 
-		# cv.imwrite(os.path.join(r'C:\Users\Brooks\Desktop\test', local_img_path), image)
+		image = np.asarray(image)
+		cv.imwrite(os.path.join(r'C:\Users\Brooks\Desktop\test', local_img_path), image)
 
 		if isinstance(image, np.ndarray):
 			image= torch.from_numpy(image)
 		image = image[None, : , : ]
 
-		# print(image.shape)
 		return image, image_text
 
 class Rotate():
@@ -78,7 +78,7 @@ class Rotate():
 
 class Pad():
 	def __init__(self):
-		self.DESIRED_WIDTH = 500
+		self.DESIRED_WIDTH = 250
 		self.DESIRED_HEIGHT = 40
 
 	def __call__(self, image):
@@ -265,7 +265,3 @@ if __name__ == '__main__':
 		batch_size=1,
 		num_workers=0,
 		shuffle=0)
-
-	for j in range(5):
-		for i in training_data:
-			pass

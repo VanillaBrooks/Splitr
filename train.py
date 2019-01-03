@@ -6,7 +6,48 @@ import os
 import torchvision
 from multiprocessing import Pool
 
-def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num_hidden= 256, unique_char_count=57,rnn_layer_stack=1, LOAD_MODEL=False, LOAD_MODEL_PATH=False):
+class average():
+	def __init__(self, n=30, k = 10):
+		self.n = n
+		self.k = k
+		self.last_n = []
+		self.last_k = []
+	def new_number(self, num):
+		if len(self.last_n) >= self.n:
+			self.last_n.pop(0)
+		if len(self.last_k) >= self.k:
+			self.last_k.pop(0)
+
+		self.last_n.append(num)
+		self.last_k.append(num)
+
+		print(self.last_k)
+
+		ret = self._avg_diff()
+		print('the value being returned from new_number is %s' % ret)
+		return ret
+
+	def _average(self, var=False):
+		if var:
+			return float(sum(var)) / max(len(var), 1)
+
+		else:
+			print('var was false')
+			return float(sum(self.last_k)) / max(len(self.last_k), 1)
+
+
+	def _avg_diff(self):
+		n =  self._average(self.last_n)
+		k = self._average(self.last_k)
+		print('n is %s k is %s n-k is %s' % (n, k, n-k))
+
+		return n - k
+
+
+def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,
+	num_hidden= 256, unique_char_count=57,rnn_layer_stack=1, LOAD_MODEL=False,
+	LOAD_MODEL_PATH=False, learning_rate = 1e-3):
+
 	MODEL_SAVE_PATH = r'C:\Users\Brooks\github\Splitr\models\%s_%s_%s.model'
 	TXT_SAVE_PATH = r'C:\Users\Brooks\github\Splitr\models\%s.txt'
 
@@ -26,14 +67,15 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num
 
 	# optimizer for stepping and CTC loss function for backprop
 	criterion = torch.nn.CTCLoss().to(device)
-	optimizer = torch.optim.Adam(OCR.parameters(), lr=1e-2)
+	optimizer = torch.optim.Adam(OCR.parameters(), lr=learning_rate)
 
 	# initialize the Dataset. This is done so that we can work with more data
 	# than what is loadable into RAM
 	training_set = model_utils.OCR_dataset_loader(
 		csv_file_path = r'C:\Users\Brooks\github\Splitr\data\training_data.csv',
 		path_to_data =r'C:\Users\Brooks\Desktop\OCR_data',
-		transform = torchvision.transforms.Compose([model_utils.Rotate(5), model_utils.Pad()]))
+		# transform = torchvision.transforms.Compose([model_utils.Rotate(5), model_utils.Pad()])
+		transform = torchvision.transforms.Compose([model_utils.Pad()]))
 
 	# initialize the training data into a dataloader for batch pulling
 	# and shuffling the data
@@ -45,6 +87,8 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num
 
 	epoch_loss = 0
 	previous_save_path = False
+	avg = average()
+
 	# iterate through all the designated epochs for training
 	for i in range(1,epochs+1):
 		# runing variables to keep track of data between batches
@@ -94,17 +138,21 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num
 			print(count, _loss)
 
 			if count % 100 == 0:
-				batch_out_str = 'epoch: %s iter: %s running loss: %s RL decrease:%s' % (i, count, run_loss, prev_run_loss-run_loss)
+				running_average = avg.new_number(run_loss)
+				batch_out_str = 'epoch: %s iter: %s running loss: %s avg decrease: %s decrease: %s' % (i, count, run_loss, running_average, prev_run_loss-run_loss)
 				print(batch_out_str)
 
 				with open(TXT_SAVE_PATH % (START_TIME), 'a') as file:
 					file.write(batch_out_str + '\n')
 				if count % 100 *1 == 0:
 					save_path = MODEL_SAVE_PATH % (START_TIME, i, count)
-					torch.save(OCR.state_dict(), save_path)
-					if previous_save_path:
-						os.remove(previous_save_path)
-					previous_save_path = save_path
+					try:
+						torch.save(OCR.state_dict(), save_path)
+						if previous_save_path:
+							os.remove(previous_save_path)
+						previous_save_path = save_path
+					except Exception as e:
+						print('|||| EXCEPTION : ', e)
 
 				epoch_loss += run_loss
 				prev_run_loss = run_loss
@@ -116,24 +164,19 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,num
 			file.write(outstr + '// END OF EPOCH' + '\n')
 
 if __name__ == '__main__':
-	# model parameters
-	channel_count=1
-	num_hidden= 256
-	unique_char_count=80
-	rnn_layer_stack=3
 
 	LOAD_MODEL =False
-	LOAD_MODEL_PATH = r'models\CRNN_2rnn_256hidden_57char_1channel.model'
-
+	LOAD_MODEL_PATH = r'models\1546475278_1_40700.model'
 
 	train(
 		epochs=10000,
 		batch_size=32,
 		workers=8,
 		shuffle=True,
-		channel_count=channel_count,
-		num_hidden= num_hidden,
-		unique_char_count=unique_char_count,
-		rnn_layer_stack=rnn_layer_stack,
+		channel_count=1,
+		num_hidden= 256,
+		unique_char_count=80,
+		rnn_layer_stack=1,
 		LOAD_MODEL= LOAD_MODEL,
-		LOAD_MODEL_PATH=LOAD_MODEL_PATH)
+		LOAD_MODEL_PATH=LOAD_MODEL_PATH,
+		learning_rate = 1e-3)

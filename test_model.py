@@ -10,10 +10,10 @@ import time
 
 def make_image_array(input_word,FONT_SIZE=15, save=False):
 	# construct tensor holding the optical characters
-	img = Image.new('L', (500,80), color=255)
+	img = Image.new('L', (250,40), color=255)
 	imdraw= ImageDraw.Draw(img)
 	font = ImageFont.truetype(FONT_PATH,FONT_SIZE)
-	imdraw.text((250, 30), TEST_WORD, fill=0, font=font)
+	imdraw.text((100, 20), TEST_WORD, fill=0, font=font)
 	np_image = np.asarray(img)
 	input_tensor = torch.from_numpy(np_image[None, None,:,:]).float()
 
@@ -46,25 +46,28 @@ def main(FONT_PATH, MODEL_PATH,LOAD_MODEL,TEST_WORD, csv_file_path, path_to_data
 
 	a2 = time.time()
 	# initialize model and load weights
-	model = crnn.model(channel_count=1,num_hidden= 256, unique_char_count=57,rnn_layer_stack=2).to(device)
+	model = crnn.model(channel_count=1,num_hidden= 256, unique_char_count=80,rnn_layer_stack=1).to(device)
 	if LOAD_MODEL:
 		model.load_state_dict(torch.load(MODEL_LOAD_PATH))
 
 	a3 = time.time()
 
 	with torch.no_grad():
+		# print('image:')
+		# print(img)
 		word_result = model.forward(img)
+		print(word_result.shape)
 
 	a4 = time.time()
 
 	# fetch the characterset being used in the model
-	dataloader = model_utils.OCR_dataset_loader(
-			csv_file_path = csv_file_path,
-			path_to_data =path_to_data,
-			crop_dataset=False,
-			transform = False)
-	char_set = dataloader.unique_chars
-
+	# dataloader = model_utils.OCR_dataset_loader(
+	# 		csv_file_path = csv_file_path,
+	# 		path_to_data =path_to_data,
+	# 		transform = False)
+	# char_set = dataloader.unique_chars
+	char_set = list(r' SitcomOrhnlayg.70DANCELudesKk\'6bPRI!v-542Tx1WYwHU8,B3jqGMp9J(VzfF_X)[]QZ/&@%#$\\')
+	print(''.join(char_set))
 	a5 = time.time()
 
 	# find the resulting tensor and word 2
@@ -77,9 +80,9 @@ def main(FONT_PATH, MODEL_PATH,LOAD_MODEL,TEST_WORD, csv_file_path, path_to_data
 
 if __name__ == '__main__':
 	FONT_PATH = r'fonts\OpenSans-Bold.ttf'# the path to the font that is being used
-	MODEL_LOAD_PATH = r'models/model.model'# path to the model being loaded and tested
-	LOAD_MODEL = True
-	TEST_WORD = 'sampletext' # phrase being drawn in picture
+	MODEL_LOAD_PATH = r'models\1546462347_1_900.model'# path to the model being loaded and tested
+	LOAD_MODEL = False
+	TEST_WORD = 'sample text' # phrase being drawn in picture
 
 	csv_file_path = r'data\training_data.csv'
 	path_to_data =r'C:\Users\Brooks\Desktop\OCR_data'
