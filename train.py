@@ -8,20 +8,22 @@ from multiprocessing import Pool
 
 class average():
 	def __init__(self, n=30, k = 10):
-		self.n = n
-		self.k = k
-		self.last_n = []
-		self.last_k = []
+		self.max_long = n
+		self.max_short = k
+
+		self.long = []
+		self.short = []
+
 	def new_number(self, num):
-		if len(self.last_n) >= self.n:
-			self.last_n.pop(0)
-		if len(self.last_k) >= self.k:
-			self.last_k.pop(0)
+		if len(self.long) >= self.max_long:
+			self.long.pop(0)
+		if len(self.short) >= self.max_short:
+			self.short.pop(0)
 
-		self.last_n.append(num)
-		self.last_k.append(num)
+		self.long.append(num)
+		self.short.append(num)
 
-		print(self.last_k)
+		print(self.short)
 
 		ret = self._avg_diff()
 		print('the value being returned from new_number is %s' % ret)
@@ -33,22 +35,23 @@ class average():
 
 		else:
 			print('var was false')
-			return float(sum(self.last_k)) / max(len(self.last_k), 1)
+			return float(sum(self.short)) / max(len(self.short), 1)
 
 
 	def _avg_diff(self):
-		n =  self._average(self.last_n)
-		k = self._average(self.last_k)
-		print('n is %s k is %s n-k is %s' % (n, k, n-k))
+		long =  self._average(self.long)
+		short = self._average(self.short)
+		print('long is %s short is %s diff is %s' % (long, short, long-short))
 
-		return n - k
+		return long - short
 
 
 def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,
 	num_hidden= 256, unique_char_count=57,rnn_layer_stack=1, LOAD_MODEL=False,
-	LOAD_MODEL_PATH=False, learning_rate = 1e-3):
+	LOAD_MODEL_PATH=False, learning_rate = 1e-3, model_name='model'):
 
-	MODEL_SAVE_PATH = r'C:\Users\Brooks\github\Splitr\models\%s_%s_%s.model'
+	# MODEL_SAVE_PATH = r'C:\Users\Brooks\github\Splitr\models\%s_%s_%s.model'
+	MODEL_SAVE_PATH = r'E:\models' + str(model_name) + r'\%s_%s_%s.model'
 	TXT_SAVE_PATH = r'C:\Users\Brooks\github\Splitr\models\%s.txt'
 
 	START_TIME = int(time.time())
@@ -67,7 +70,8 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,
 
 	# optimizer for stepping and CTC loss function for backprop
 	criterion = torch.nn.CTCLoss().to(device)
-	optimizer = torch.optim.Adam(OCR.parameters(), lr=learning_rate)
+	# optimizer = torch.optim.Adam(OCR.parameters(), lr=learning_rate, amsgrad=True)
+	optimizer = torch.optim.Adadelta(OCR.parameters(), lr=1.0, rho=0.9, eps=1e-6, weight_decay=0)
 
 	# initialize the Dataset. This is done so that we can work with more data
 	# than what is loadable into RAM
@@ -104,12 +108,13 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,
 
 			# construct a list of all the lengths of strings in the data
 			target_length_list = [len(word) for word in training_label_batch]
+			max_str_len = max(target_length_list)
 
 			# convert all the strings pulled from target_length_list to
 			# tensors so that they can be fed to loss function
 			training_label_batch = model_utils.encode_single_vector(
 				training_label_batch,
-				training_set.max_str_len,
+				max_str_len,
 				training_set.unique_chars).squeeze().to(device)
 
 			# get the predicted optical characters from the model
@@ -135,7 +140,7 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,
 			# add losses to the running total
 			_loss = 100* loss.item()/batch
 			run_loss += (_loss)
-			print(count, _loss)
+			print(count, max_str_len, _loss)
 
 			if count % 100 == 0:
 				running_average = avg.new_number(run_loss)
@@ -144,7 +149,7 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,
 
 				with open(TXT_SAVE_PATH % (START_TIME), 'a') as file:
 					file.write(batch_out_str + '\n')
-				if count % 100 *1 == 0:
+				if count % (100 * 5) == 0:
 					save_path = MODEL_SAVE_PATH % (START_TIME, i, count)
 					try:
 						torch.save(OCR.state_dict(), save_path)
@@ -166,7 +171,7 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,
 if __name__ == '__main__':
 
 	LOAD_MODEL =False
-	LOAD_MODEL_PATH = r'models\1546475278_1_40700.model'
+	LOAD_MODEL_PATH = r'E:\models\1546547891_1_12800.model'
 
 	train(
 		epochs=10000,
@@ -179,4 +184,5 @@ if __name__ == '__main__':
 		rnn_layer_stack=1,
 		LOAD_MODEL= LOAD_MODEL,
 		LOAD_MODEL_PATH=LOAD_MODEL_PATH,
-		learning_rate = 1e-3)
+		learning_rate = 1e-3
+		model_name='model')
