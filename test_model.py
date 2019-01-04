@@ -7,20 +7,30 @@ import model_utils
 import skimage
 import sys
 import time
+import os
+from build_training_data import construct_image
 
 def make_image_array(input_word,FONT_SIZE=15, save=False):
-	# construct tensor holding the optical characters
-	img = Image.new('L', (250,40), color=255)
-	imdraw= ImageDraw.Draw(img)
-	font = ImageFont.truetype(FONT_PATH,FONT_SIZE)
-	imdraw.text((100, 20), TEST_WORD, fill=0, font=font)
-	np_image = np.asarray(img)
-	input_tensor = torch.from_numpy(np_image[None, None,:,:]).float()
+	# # construct tensor holding the optical characters
+	# img = Image.new('L', (250,40), color=255)
+	# imdraw= ImageDraw.Draw(img)
+	# font = ImageFont.truetype(FONT_PATH,FONT_SIZE)
+	# imdraw.text((100, 20), TEST_WORD, fill=0, font=font)
+	# np_image = np.asarray(img)
+	# input_tensor = torch.from_numpy(np_image[None, None,:,:]).float()
+	#
+	# if save:
+	# 	cv.imwrite('%s.png' % input_word, np_image)
+	#
+	# return input_tensor
 
-	if save:
-		cv.imwrite('%s.png' % input_word, np_image)
+	image = construct_image(FONT_PATH, input_word, FONT_SIZE)
+	pad = model_utils.Pad()
+	image = np.array(pad.__call__(image))
 
-	return input_tensor
+	cv.imwrite(os.path.join(r'C:\Users\Brooks\Desktop', 'testimage.png'), image)
+
+	return torch.from_numpy(image)[None,None,:,:]
 
 
 def load_training_images(path):
@@ -53,8 +63,6 @@ def main(FONT_PATH, MODEL_PATH,LOAD_MODEL,TEST_WORD, csv_file_path, path_to_data
 	a3 = time.time()
 
 	with torch.no_grad():
-		# print('image:')
-		# print(img)
 		word_result = model.forward(img)
 		print(word_result.shape)
 
@@ -80,9 +88,9 @@ def main(FONT_PATH, MODEL_PATH,LOAD_MODEL,TEST_WORD, csv_file_path, path_to_data
 
 if __name__ == '__main__':
 	FONT_PATH = r'fonts\OpenSans-Bold.ttf'# the path to the font that is being used
-	MODEL_LOAD_PATH = r'models\1546462347_1_900.model'# path to the model being loaded and tested
-	LOAD_MODEL = False
-	TEST_WORD = 'sample text' # phrase being drawn in picture
+	MODEL_LOAD_PATH = r'E:\models\1546553153_1_37800.model' # path to the model being loaded and tested
+	LOAD_MODEL = True
+	TEST_WORD = 'this is a sample string of text 356' # phrase being drawn in picture
 
 	csv_file_path = r'data\training_data.csv'
 	path_to_data =r'C:\Users\Brooks\Desktop\OCR_data'
@@ -91,4 +99,4 @@ if __name__ == '__main__':
 
 	MODE = 'cpu'
 
-	main(FONT_PATH,MODEL_LOAD_PATH,LOAD_MODEL,TEST_WORD,csv_file_path, path_to_data,FONT_SIZE, configure_device(MODE))
+	main(FONT_PATH, MODEL_LOAD_PATH, LOAD_MODEL, TEST_WORD, csv_file_path, path_to_data, FONT_SIZE, configure_device(MODE))

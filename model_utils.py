@@ -28,7 +28,7 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 
 		# get the maximum length of string in the data
 		self.max_str_len = self.training_df.labels.map(lambda x: len(str(x))).max()
-		print('the max str len is %s'% self.max_str_len)
+		# print('the max str len is %s'% self.max_str_len)
 		self.training_df_len = len(self.training_df)
 
 		# generate a list of unique characters of this dataset
@@ -48,7 +48,7 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		# organize the data
 		image_text= row_of_csv[0]
 		local_img_path = row_of_csv[1]
-		local_img_path = local_img_path[:-6] + ' ' + local_img_path[-6:]
+		local_img_path = local_img_path[:-6] + ' ' + local_img_path[-6:]	# take care of the space that was generated in the actual files' names REMOVE LATER
 
 		full_img_path = os.path.join(self.root_dir,local_img_path)
 		image = io.imread(full_img_path).astype(np.float32)
@@ -57,8 +57,8 @@ class OCR_dataset_loader(torch.utils.data.Dataset):
 		if self.transform:
 			image = self.transform(image)
 
-		image = np.asarray(image)
-		cv.imwrite(os.path.join(r'C:\Users\Brooks\Desktop\test', local_img_path), image)
+		# image = np.asarray(image)
+		# cv.imwrite(os.path.join(r'C:\Users\Brooks\Desktop\test', local_img_path), image)
 
 		if isinstance(image, np.ndarray):
 			image= torch.from_numpy(image)
