@@ -106,8 +106,8 @@ class model(torch.nn.Module):
 		# _bdsm_layer.append(BDSM(num_inputs=num_hidden*2, num_hidden_layers=num_hidden,char_in= 190, char_out=250, layer_count=1))
 		# _bdsm_layer.append(BDSM(num_inputs=num_hidden*2, num_hidden_layers=num_hidden,char_in= 250, char_out=350, layer_count=1))
 
-		inc = 1.8
-		max_len = 600
+		inc = 1.26
+		max_len = 80
 		current = 53
 		p = 0
 
@@ -115,34 +115,10 @@ class model(torch.nn.Module):
 			p+=1
 			prev = current
 			current = int(inc * prev)
+			print(prev, current)
 			_bdsm_layer.append(BDSM(num_inputs=num_hidden*2, num_hidden_layers=num_hidden,char_in= prev, char_out=current, layer_count=1))
 
-
 		print('number of rnns stacked %s' % p)
-
-		# l1 = BDSM(num_inputs=2048, num_hidden_layers=num_hidden, char_in=56,char_out=65, layer_count=rnn_layer_stack)
-		# l2 = []
-		# max_1, cur = 56, 75
-		# while cur < max_1:
-		# 	old = cur
-		# 	cur = int(cur * 1.05)
-		# 	l2.append(torch.nn.Linear(old, cur))
-		# 	l2.append(torch.nn.ReLU())
-		#
-		# l2 = torch.nn.Sequential(*l2)
-		#
-		# l3 = BDSM(num_inputs=num_hidden*2, num_hidden_layers=num_hidden, char_in=56,char_out=65, layer_count=rnn_layer_stack)
-		# l4 = []
-		#
-		# max_1, cur = 75, 90
-		# while cur < max_1:
-		# 	old = cur
-		# 	cur = int(cur * 1.05)
-		# 	l4.append(torch.nn.Linear(old, cur))
-		# 	l4.append(torch.nn.ReLU())
-		#
-		# l4 = torch.nn.Sequential(*l4)
-
 
 		# CHAR activations (transcription)
 		self.linear = torch.nn.Sequential(
