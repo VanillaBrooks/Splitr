@@ -91,126 +91,60 @@ def load_data(WORDLIST_FILE):
 		# print('data is %s' % data)
 	return data
 
-def gen_pillow(wordlist, path, GENERATION_COUNT):
-
-	def dump_file(names, labels, i):
-		df = pd.DataFrame({'labels':labels, 'names':names})
-		df.to_csv(os.path.join(r'C:\Users\Brooks\github\Splitr\data', i+'.csv'), index=False)
-
-	FontPicker = FontChoice(r'C:\Users\Brooks\github\Splitr\fonts')
-	WordPicker = WordChoice(wordlist)
-
-	names, labels = [] , []
-
-	total_iter_track = 0
-	scale = 1
-
-	while total_iter_track <= GENERATION_COUNT:
-		current_font = FontPicker.pick_font()
-		word_string = make_string(WordPicker.pick_word(random.randint(2,5)))
-		L = len(word_string)
-
-		minx, maxx = int(scale*500 /20), int(scale* 500 *10/20)
-		miny, maxy = int(scale*80 /10), int(scale* 80 *14 /20)
-
-
-		if L < 15:
-			lower_bound = 30
-			upper_bound = 40
-			miny, maxy = int(scale*80 /10), int(scale* 80 *8 /20)
-		elif L < 20:
-			lower_bound = 20
-			upper_bound = 30
-			minx, maxx = int(scale*500 /20), int(scale* 500 *6/20)
-			miny, maxy = int(scale*80 /10), int(scale* 80 *11 /20)
-		elif L < 30:
-			lower_bound = 10
-			upper_bound = 20
-		elif L > 50:
-			minx, maxx = int(scale*500 /20), int(scale* 500 *2/20)
-			miny, maxy = int(scale*80 /10), int(scale* 80 *11 /20)
-			lower_bound = 10
-			upper_bound = 13
-		else:
-			lower_bound = 10
-			upper_bound = 15
-			minx, maxx = int(scale*500 /20), int(scale* 500 *8/20)
-
-
-		fontsize = random.randint(lower_bound,upper_bound) * scale
-
-		img = Image.new('L', (500*scale,80*scale), color=255)
-
-		x_offset = random.randint(minx, maxx)
-		y_offset = random.randint(miny, maxy)
-
-		d = ImageDraw.Draw(img)
-		fnt = ImageFont.truetype(current_font, fontsize)
-		d.text((x_offset,y_offset), word_string, fill=0, font=fnt)
-
-		if scale != 1:
-			img = img.resize((500,80), Image.LANCZOS)
-
-		img_save_path = os.path.join(path, str(total_iter_track) + '.jpg')
-		imwrite(img_save_path, np.array(img))
-
-		names.append(str(total_iter_track) +'.jpg')
-		labels.append(word_string)
-
-		total_iter_track += 1
-
-		if total_iter_track % 10000 == 0:
-			print('done percent: {}'.format(100*total_iter_track / GENERATION_COUNT))
-
-	dump_file(names, labels, 'training_data')
-
-def gen_pillow_small(process_name, GENERATION_COUNT, PROCESS_COUNT,path, wordlist):
-	GENERATION_COUNT = int(GENERATION_COUNT/ PROCESS_COUNT)
-	def dump_file(names, labels, i):
-		df = pd.DataFrame({'labels':labels, 'names':names})
-		df.to_csv(os.path.join(r'C:\Users\Brooks\github\Splitr\data', i+'.csv'), index=False)
-
-	FontPicker = FontChoice(r'C:\Users\Brooks\github\Splitr\fonts')
-	WordPicker = WordChoice(wordlist)
-
-	names, labels = [] , []
-
-	total_iter_track = 0
-	scale = 1
-	# try:
-	while total_iter_track <= GENERATION_COUNT:
-		current_font = FontPicker.pick_font()
-		word_string = make_string(WordPicker.pick_word(random.randint(2,5)))
-		L = len(word_string)
-
-		xpos, ypos = 0,0
+def construct_image(font_path, word_string, fontsize = False, scale=1):
+	if not fontsize:
 		lower_bound, upper_bound = 10,50
 		fontsize = random.randint(lower_bound, upper_bound) * scale
 
-		img = Image.new('L', (scale*1000,scale*80), color=255)
+	img = Image.new('L', (scale*1000,scale*80), color=255)
 
 
-		d = ImageDraw.Draw(img)
-		fnt = ImageFont.truetype(current_font, fontsize)
-		d.text((xpos,ypos), word_string, fill=0, font=fnt)
+	d = ImageDraw.Draw(img)
+	fnt = ImageFont.truetype(font_path, fontsize)
+	d.text((0,0), word_string, fill=0, font=fnt)
 
-		if scale != 1:
-			img = img.resize((600,20), Image.LANCZOS)
-		img = trim(img)
+	if scale != 1:
+		img = img.resize((600,20), Image.LANCZOS)
+	img = trim(img)
 
-		img_save_path = os.path.join(path, str(total_iter_track) + '_' + str(process_name)+ '.jpg')
-		imwrite(img_save_path, np.array(img))
+	return np.array(img)
 
-		names.append(str(total_iter_track) +'_' + str(process_name) +'.jpg')
+def gen_pillow_small(process_name, GENERATION_COUNT, PROCESS_COUNT,path, wordlist):
+	GENERATION_COUNT = int(GENERATION_COUNT/ PROCESS_COUNT)
+
+	def dump_file(names, labels, i):
+		df = pd.DataFrame({'labels':labels, 'names':names})
+		df.to_csv(os.path.join(r'C:\Users\Brooks\github\Splitr\data', i+'.csv'), index=False)
+
+	FontPicker = FontChoice(r'C:\Users\Brooks\github\Splitr\fonts')
+	WordPicker = WordChoice(wordlist)
+
+	names, labels = [] , []
+
+	total_iter_track = 0
+
+	FILE_EXTENSION = '%s_' + str(process_name) + '.jpg'
+	
+	while total_iter_track <= GENERATION_COUNT:
+		current_file_name = FILE_EXTENSION % total_iter_track
+
+		current_font = FontPicker.pick_font()
+		word_string = make_string(WordPicker.pick_word(random.randint(2,5)))
+		L = len(word_string)
+
+		img = construct_image(current_font, word_string)
+
+		img_save_path = os.path.join(path, current_file_name)
+		imwrite(img_save_path, img)
+
+		names.append(current_file_name)
 		labels.append(word_string)
 
 		total_iter_track += 1
 
 		if total_iter_track % 10000 == 0:
 			print('done percent: {}'.format(100*total_iter_track / GENERATION_COUNT))
-	# except Exception as e:
-	# 	print(e)
-	# finally:
+
 	dump_file(names, labels, 'training_data' + str(process_name))
 
 
