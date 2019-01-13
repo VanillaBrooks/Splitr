@@ -88,14 +88,14 @@ def main(FONT_PATH, MODEL_PATH,LOAD_MODEL,TEST_WORD, csv_file_path, path_to_data
 
 if __name__ == '__main__':
 	FONT_PATH = r'fonts\OpenSans-Bold.ttf'# the path to the font that is being used
-	MODEL_LOAD_PATH = r'E:\models\1546553153_1_37800.model' # path to the model being loaded and tested
+	MODEL_LOAD_PATH = r'E:\models\model_rms.model' # path to the model being loaded and tested 1546553153_1_93700
 	LOAD_MODEL = True
-	TEST_WORD = 'this is a sample string of text 356' # phrase being drawn in picture
+	TEST_WORD = 'this is a test phrase'[:80] # phrase being drawn in picture
 
 	csv_file_path = r'data\training_data.csv'
 	path_to_data =r'C:\Users\Brooks\Desktop\OCR_data'
 
-	FONT_SIZE = 15
+	FONT_SIZE = 20
 
 	MODE = 'cpu'
 

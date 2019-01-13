@@ -7,26 +7,23 @@ import torchvision
 from multiprocessing import Pool
 
 class average():
-	def __init__(self, n=30, k = 10):
-		self.max_long = n
-		self.max_short = k
+	def __init__(self, n=100):
 
-		self.long = []
-		self.short = []
+		self.max = n
+		self.total_change = 0
+		self.current = []
+		self.previous = []
 
 	def new_number(self, num):
-		if len(self.long) >= self.max_long:
-			self.long.pop(0)
-		if len(self.short) >= self.max_short:
-			self.short.pop(0)
+		self.current.append(num)
+		if len(self.current) > self.max:
+			self.previous.append(self.current.pop(0))
 
-		self.long.append(num)
-		self.short.append(num)
-
-		print(self.short)
+		if len(self.previous) > self.max:
+			self.previous.pop(0)
 
 		ret = self._avg_diff()
-		print('the value being returned from new_number is %s' % ret)
+
 		return ret
 
 	def _average(self, var=False):
@@ -35,26 +32,29 @@ class average():
 
 		else:
 			print('var was false')
-			return float(sum(self.short)) / max(len(self.short), 1)
+			return float(sum(self.current)) / max(len(self.current), 1)
 
 
 	def _avg_diff(self):
-		long =  self._average(self.long)
-		short = self._average(self.short)
-		print('long is %s short is %s diff is %s' % (long, short, long-short))
+		long =  self._average(self.previous)
+		short = self._average(self.current)
 
-		return long - short
+		diff =  long - short
+		if len(self.previous) >= self.max:
+			self.total_change += diff
 
+		return diff
 
 def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,
 	num_hidden= 256, unique_char_count=57,rnn_layer_stack=1, LOAD_MODEL=False,
 	LOAD_MODEL_PATH=False, learning_rate = 1e-3, model_name='model'):
 
 	# MODEL_SAVE_PATH = r'C:\Users\Brooks\github\Splitr\models\%s_%s_%s.model'
-	MODEL_SAVE_PATH = r'E:\models' + str(model_name) + r'\%s_%s_%s.model'
+	MODEL_SAVE_PATH = r'E:\models\%s.model' % model_name
 	TXT_SAVE_PATH = r'C:\Users\Brooks\github\Splitr\models\%s.txt'
 
 	START_TIME = int(time.time())
+	print(MODEL_SAVE_PATH)
 
 	# use gpu if it is available
 	device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -70,8 +70,11 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,
 
 	# optimizer for stepping and CTC loss function for backprop
 	criterion = torch.nn.CTCLoss().to(device)
+	# optimizer = torch.optim.SGD(OCR.parameters(), lr=learning_rate, momentum=.9, dampening=0, weight_decay=0, nesterov=False)
+	# scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=False, threshold=1e-4, threshold_mode='rel', cooldown=0, min_lr=0, eps=1e-8)
 	# optimizer = torch.optim.Adam(OCR.parameters(), lr=learning_rate, amsgrad=True)
-	optimizer = torch.optim.Adadelta(OCR.parameters(), lr=1.0, rho=0.9, eps=1e-6, weight_decay=0)
+	# optimizer = torch.optim.Adadelta(OCR.parameters(), lr=1.0, rho=0.9, eps=1e-6, weight_decay=0)
+	optimizer = torch.optim.RMSprop(OCR.parameters(), lr=1e-2, alpha=0.99, eps=1e-8, weight_decay=0, momentum=0, centered=False)
 
 	# initialize the Dataset. This is done so that we can work with more data
 	# than what is loadable into RAM
@@ -136,6 +139,7 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,
 			optimizer.zero_grad()
 			loss.backward()
 			optimizer.step()
+			# scheduler.step(loss)
 
 			# add losses to the running total
 			_loss = 100* loss.item()/batch
@@ -144,18 +148,14 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,
 
 			if count % 100 == 0:
 				running_average = avg.new_number(run_loss)
-				batch_out_str = 'epoch: %s iter: %s running loss: %s avg decrease: %s decrease: %s' % (i, count, run_loss, running_average, prev_run_loss-run_loss)
+				batch_out_str = '%s : %s run: %s avg: %s total: %s dec: %s' % (i, count/100, run_loss, running_average,  avg.total_change, prev_run_loss-run_loss)
 				print(batch_out_str)
 
 				with open(TXT_SAVE_PATH % (START_TIME), 'a') as file:
 					file.write(batch_out_str + '\n')
 				if count % (100 * 5) == 0:
-					save_path = MODEL_SAVE_PATH % (START_TIME, i, count)
 					try:
-						torch.save(OCR.state_dict(), save_path)
-						if previous_save_path:
-							os.remove(previous_save_path)
-						previous_save_path = save_path
+						torch.save(OCR.state_dict(), MODEL_SAVE_PATH)
 					except Exception as e:
 						print('|||| EXCEPTION : ', e)
 
@@ -170,19 +170,22 @@ def train(epochs=10000,batch_size=2, workers=8, shuffle=True,channel_count=1,
 
 if __name__ == '__main__':
 
-	LOAD_MODEL =False
-	LOAD_MODEL_PATH = r'E:\models\1546547891_1_12800.model'
-
-	train(
-		epochs=10000,
-		batch_size=32,
-		workers=8,
-		shuffle=True,
-		channel_count=1,
-		num_hidden= 256,
-		unique_char_count=80,
-		rnn_layer_stack=1,
-		LOAD_MODEL= LOAD_MODEL,
-		LOAD_MODEL_PATH=LOAD_MODEL_PATH,
-		learning_rate = 1e-3
-		model_name='model')
+	LOAD_MODEL =True
+	LOAD_MODEL_PATH = r'E:\models\model_sgd_3.model'
+	while True:
+		try:
+			train(
+				epochs=10000,
+				batch_size=32,
+				workers=8,
+				shuffle=True,
+				channel_count=1,
+				num_hidden= 256,
+				unique_char_count=80,
+				rnn_layer_stack=1,
+				LOAD_MODEL= LOAD_MODEL,
+				LOAD_MODEL_PATH=LOAD_MODEL_PATH,
+				learning_rate = 1e-2,
+				model_name='model_rms')
+		except Exception as e:
+			print(':::::main exception: ', e)

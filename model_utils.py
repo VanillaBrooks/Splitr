@@ -214,7 +214,12 @@ def decode_single_vector(input_tensor, unique_chars, argmax_dim=1):
 		character = unique_chars[int(index)]
 
 		if character == ' ':
-			pass
+			raw_outstr += character
+			if previous_character == ' ':
+				pass
+			else:
+				# raw_outstr += character
+				format_outstr += character
 		elif character != previous_character:
 			raw_outstr += character
 			format_outstr += character

@@ -6,6 +6,8 @@ import string
 import pandas as pd
 import random
 import torchvision
+import time
+
 
 from multiprocessing import Process
 
@@ -124,7 +126,7 @@ def gen_pillow_small(process_name, GENERATION_COUNT, PROCESS_COUNT,path, wordlis
 	total_iter_track = 0
 
 	FILE_EXTENSION = '%s_' + str(process_name) + '.jpg'
-	
+
 	while total_iter_track <= GENERATION_COUNT:
 		current_file_name = FILE_EXTENSION % total_iter_track
 
@@ -240,14 +242,14 @@ PROCESS_COUNT = 6
 if __name__ == '__main__':
 	# ascii_only(r'C:\Users\Brooks\github\Splitr\data\trainwords_old.txt')
 	words = load_data(WORDLIST_FILE)
-	# delete_old_data()
-	import time
+	delete_old_data(r'C:\Users\Brooks\Desktop\test')
+
 	# t= time.time()
 	# for i in range(PROCESS_COUNT):
 	# 	p = Process(target=gen_pillow_small, args=(i,GENERATION_COUNT,PROCESS_COUNT,OCR_DATA_PATH,words))
 	# 	p.start()
 	# 	print(i)
 
-	merge_csv(r'C:\Users\Brooks\github\Splitr\data')
+	# merge_csv(r'C:\Users\Brooks\github\Splitr\data')
 
-	print('total runtime: %s' %(time.time()-t))
+	# print('total runtime: %s' %(time.time()-t))
